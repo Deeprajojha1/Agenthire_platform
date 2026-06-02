@@ -14,4 +14,6 @@ const candidateSchema = new mongoose.Schema(
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } }
 );
 
+candidateSchema.index({ job_id: 1, email: 1 }, { unique: true });
+
 export default mongoose.model("Candidate", candidateSchema);

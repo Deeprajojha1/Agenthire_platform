@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Workflow from "../models/Workflow.js";
 import WorkflowLog from "../models/WorkflowLog.js";
 import { loadSpec, loadWorkflowSpec } from "../utils/specLoader.js";
@@ -72,4 +73,29 @@ export async function getWorkflow(id) {
 export async function listWorkflowSummaries() {
   const workflows = await Workflow.find().populate("candidate_id job_id").sort({ created_at: -1 });
   return { workflows, node_state_spec: loadSpec("workflow/node-states.json") };
+}
+
+export async function deleteWorkflow(workflowId) {
+  if (!mongoose.isValidObjectId(workflowId)) {
+    const error = new Error("Invalid workflow id");
+    error.statusCode = 400;
+    throw error;
+  }
+  const workflow = await Workflow.findById(workflowId);
+  if (!workflow) {
+    const error = new Error("Workflow not found");
+    error.statusCode = 404;
+    throw error;
+  }
+  await WorkflowLog.deleteMany({ workflow_id: workflowId });
+  await Workflow.deleteOne({ _id: workflowId });
+  return { deleted: true, workflow_id: workflowId };
+}
+
+export async function clearWorkflows() {
+  const workflows = await Workflow.find().select("_id");
+  const workflowIds = workflows.map((workflow) => workflow._id);
+  await WorkflowLog.deleteMany({ workflow_id: { $in: workflowIds } });
+  const result = await Workflow.deleteMany({ _id: { $in: workflowIds } });
+  return { deleted: result.deletedCount || 0 };
 }

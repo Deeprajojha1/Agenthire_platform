@@ -20,3 +20,11 @@ export async function getWorkflow(req, res) {
 export async function listWorkflows(req, res) {
   jsonResponse(res, await workflowService.listWorkflowSummaries());
 }
+
+export async function deleteWorkflow(req, res) {
+  jsonResponse(res, await workflowService.deleteWorkflow(req.params.id));
+}
+
+export async function clearWorkflows(req, res) {
+  jsonResponse(res, await workflowService.clearWorkflows());
+}

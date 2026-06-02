@@ -1,13 +1,21 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 
+function getCookieToken() {
+  if (typeof document === "undefined") return null;
+  return document.cookie
+    .split("; ")
+    .find((cookie) => cookie.startsWith("agenthire_token="))
+    ?.split("=")[1] || null;
+}
+
 export function getToken() {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("agenthire_token");
+  return localStorage.getItem("agenthire_token") || getCookieToken();
 }
 
 export function setToken(token) {
   localStorage.setItem("agenthire_token", token);
-  document.cookie = `agenthire_token=${token}; path=/; max-age=604800`;
+  document.cookie = `agenthire_token=${token}; path=/; max-age=604800; SameSite=Lax`;
 }
 
 export function clearToken() {

@@ -6,3 +6,8 @@ export const uploadCandidateSchema = z.object({
   email: z.string().email(),
   phone: z.string().optional().default("")
 });
+
+export const checkApplicationSchema = z.object({
+  job_id: z.string().min(1),
+  email: z.string().email()
+});

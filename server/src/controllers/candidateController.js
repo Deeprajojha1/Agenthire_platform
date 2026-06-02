@@ -5,6 +5,10 @@ export async function uploadCandidate(req, res) {
   jsonResponse(res, await candidateService.uploadCandidate(req.body, req.file), 201);
 }
 
+export async function checkApplication(req, res) {
+  jsonResponse(res, await candidateService.checkApplication(req.body));
+}
+
 export async function listCandidates(req, res) {
   jsonResponse(res, await candidateService.listCandidates());
 }
