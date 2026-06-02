@@ -1,0 +1,7 @@
+{
+  "pending": { "label": "Pending", "color": "#64748b" },
+  "running": { "label": "Running", "color": "#2563eb" },
+  "success": { "label": "Success", "color": "#16a34a" },
+  "failed": { "label": "Failed", "color": "#dc2626" },
+  "waiting_approval": { "label": "Waiting Approval", "color": "#ca8a04" }
+}

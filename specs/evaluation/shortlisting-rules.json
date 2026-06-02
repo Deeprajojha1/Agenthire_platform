@@ -1,0 +1,7 @@
+{
+  "decisions": [
+    { "name": "shortlist", "min_score": 80, "max_score": 100 },
+    { "name": "hold", "min_score": 60, "max_score": 79 },
+    { "name": "reject", "min_score": 0, "max_score": 59 }
+  ]
+}

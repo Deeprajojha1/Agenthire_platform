@@ -1,0 +1,6 @@
+import { QdrantClient } from "@qdrant/js-client-rest";
+import { env } from "./env.js";
+
+export function createQdrantClient() {
+  return new QdrantClient({ url: env.QDRANT_URL });
+}
