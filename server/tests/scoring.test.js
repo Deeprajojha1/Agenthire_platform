@@ -3,9 +3,12 @@ import { decideShortlist, scoreCandidate } from "../src/utils/scoring.js";
 test("scores against a hiring spec without hardcoded thresholds", () => {
   const score = scoreCandidate({ skills: ["React", "JavaScript", "CSS"], experience: 2 }, {
     required_skills: ["React", "JavaScript", "CSS"],
-    preferred_skills: ["Next.js"]
+    preferred_skills: ["Next.js"],
+    min_experience: 2
+  }, {
+    weights: { required_skills: 65, preferred_skills: 20, experience: 15 }
   });
-  expect(score).toBeGreaterThanOrEqual(80);
+  expect(score.match_score).toBeGreaterThanOrEqual(80);
 });
 
 test("decides from supplied rules", () => {

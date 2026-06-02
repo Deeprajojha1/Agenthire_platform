@@ -1,0 +1,11 @@
+{
+  "weights": {
+    "required_skills": 65,
+    "preferred_skills": 20,
+    "experience": 15
+  },
+  "recommendations": [
+    { "name": "Shortlist", "minimum_score_field": "minimum_score" },
+    { "name": "Review", "fallback": true }
+  ]
+}

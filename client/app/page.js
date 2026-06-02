@@ -2,22 +2,61 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ArrowRight, BarChart3, CheckCircle2, GitBranch, ShieldCheck, Sparkles } from "lucide-react";
 import { getToken } from "../lib/api.js";
 import { Button } from "../components/ui/Button.js";
+import { PublicHeader, PublicFooter } from "../components/PublicChrome.js";
+
+const features = [
+  [GitBranch, "Automated agent workflows", "Resume parsing, matching, shortlisting, approval, interview material, and email output run in one traceable chain."],
+  [ShieldCheck, "Recruiter-controlled approvals", "Human checkpoints keep AI decisions reviewable before the workflow continues."],
+  [BarChart3, "Operational analytics", "Track candidates, workflow completion, shortlist rate, and agent execution health."]
+];
 
 export default function Home() {
   const [hasToken, setHasToken] = useState(false);
   useEffect(() => setHasToken(Boolean(getToken())), []);
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
-      <section className="w-full max-w-xl rounded-md border border-slate-200 bg-white p-8">
-        <h1 className="text-3xl font-semibold">AgentHire</h1>
-        <p className="mt-3 text-slate-600">Spec-driven recruiter console for candidate workflows, approvals, and analytics.</p>
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Button asChild><Link href={hasToken ? "/dashboard" : "/login"}>{hasToken ? "Open Dashboard" : "Log In"}</Link></Button>
-          <Button variant="outline" asChild><Link href="/signup">Sign Up</Link></Button>
+    <main className="min-h-screen bg-[#f4f7f7]">
+      <PublicHeader ctaHref={hasToken ? "/dashboard" : "/signup"} ctaLabel={hasToken ? "Open Dashboard" : "Create Account"} />
+      <section className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-16 md:grid-cols-[1.05fr_0.95fr] md:px-8 md:py-20">
+        <div>
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-sm font-medium text-teal-800">
+            <Sparkles size={15} /> Spec-driven AI recruitment
+          </div>
+          <h1 className="max-w-3xl text-4xl font-semibold leading-tight text-slate-950 md:text-6xl">Run candidate screening with AI agents and recruiter approval.</h1>
+          <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600 md:text-lg">
+            AgentHire helps recruiters publish jobs, collect PDF resumes, process applications through a LangGraph workflow, pause for approval, and review every hiring decision with logs and analytics.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Button asChild><Link href={hasToken ? "/dashboard" : "/signup"}>{hasToken ? "Open Dashboard" : "Start Recruiting"}<ArrowRight size={16} /></Link></Button>
+            <Button variant="outline" asChild><Link href="/login">Log In</Link></Button>
+          </div>
+        </div>
+        <div className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+            <p className="text-sm font-medium text-slate-500">Workflow Snapshot</p>
+            <div className="mt-4 space-y-3">
+              {["Resume parser", "Matching agent", "Human approval", "Email agent"].map((item, index) => (
+                <div key={item} className="flex items-center justify-between rounded-md bg-white p-3 text-sm shadow-sm">
+                  <span className="flex items-center gap-2"><CheckCircle2 size={16} className="text-teal-700" />{index + 1}. {item}</span>
+                  <span className="text-xs text-slate-500">tracked</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
+      <section className="mx-auto grid max-w-7xl gap-4 px-4 pb-16 md:grid-cols-3 md:px-8">
+        {features.map(([Icon, title, text]) => (
+          <div key={title} className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+            <Icon className="text-teal-700" size={22} />
+            <h2 className="mt-4 text-base font-semibold text-slate-950">{title}</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">{text}</p>
+          </div>
+        ))}
+      </section>
+      <PublicFooter />
     </main>
   );
 }

@@ -27,6 +27,15 @@ export async function retryWorkflow(workflowId) {
     error.statusCode = 404;
     throw error;
   }
+  const failedNode = workflow.node_states.find((node) => node.status === "failed");
+  if (failedNode) {
+    failedNode.status = "pending";
+    failedNode.attempts = 0;
+    failedNode.error = undefined;
+    workflow.current_state = failedNode.name;
+    workflow.status = "pending";
+    await workflow.save();
+  }
   return runHiringWorkflow(workflow._id);
 }
 

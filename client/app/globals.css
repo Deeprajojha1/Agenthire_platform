@@ -8,10 +8,16 @@
 
 body {
   margin: 0;
-  background: #f8fafc;
+  background: #f4f7f7;
   color: #0f172a;
+  min-height: 100vh;
 }
 
 .react-flow__node {
   border-radius: 8px;
+}
+
+::selection {
+  background: #ccfbf1;
+  color: #134e4a;
 }

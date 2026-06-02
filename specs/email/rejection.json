@@ -1,0 +1,4 @@
+{
+  "subject": "Update on your {{role}} application",
+  "body": "Hello {{name}}, thank you for applying for {{role}}. We are not moving forward at this time, but we appreciate your interest."
+}

@@ -1,0 +1,14 @@
+{
+  "temperature": 0,
+  "known_skills": ["React", "JavaScript", "CSS", "Next.js", "Tailwind CSS", "HTML", "Node.js"],
+  "experience_patterns": ["(\\d+)\\+?\\s+years?", "(\\d+)\\+?\\s+yrs?"],
+  "education_keywords": ["B.Tech", "Bachelor", "Degree", "MCA", "BCA"],
+  "project_keywords": ["project", "built", "developed", "implemented"],
+  "output_schema": {
+    "name": "string",
+    "skills": "string[]",
+    "experience": "number",
+    "education": "string",
+    "projects": "string[]"
+  }
+}

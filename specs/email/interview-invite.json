@@ -1,0 +1,4 @@
+{
+  "subject": "Interview invitation for {{role}}",
+  "body": "Hello {{name}}, your application for {{role}} has moved forward. We would like to invite you to the next interview round."
+}
