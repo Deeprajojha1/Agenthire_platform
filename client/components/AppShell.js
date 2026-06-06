@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BriefcaseBusiness, ChartBar, GitBranch, LayoutDashboard, LogOut, Menu, Sparkles, Users, X } from "lucide-react";
 import { toast } from "sonner";
-import { clearToken, getToken } from "../lib/api.js";
+import { api, clearToken, getToken } from "../lib/api.js";
 import { Button } from "./ui/Button.js";
 import { PageLoader } from "./ui/PageLoader.js";
 
@@ -23,14 +23,14 @@ function NavLinks({ pathname, onNavigate }) {
       {items.map(([href, label, Icon]) => {
         const active = href === "/dashboard" ? pathname === href : pathname.startsWith(href);
         return (
-          <button
+          <Link
             key={href}
-            type="button"
-            onClick={() => onNavigate?.(href)}
-            className={`flex h-9 w-full items-center gap-3 rounded-md px-3 text-left text-sm font-medium transition ${active ? "bg-teal-700 text-white shadow-sm" : "text-slate-600 hover:bg-teal-50 hover:text-teal-800"}`}
+            href={href}
+            onClick={(event) => onNavigate?.(href, event)}
+            className={`flex h-9 w-full cursor-pointer items-center gap-3 rounded-md px-3 text-left text-sm font-medium transition ${active ? "bg-teal-700 text-white shadow-sm" : "text-slate-600 hover:bg-teal-50 hover:text-teal-800"}`}
           >
             <Icon size={15} /> {label}
-          </button>
+          </Link>
         );
       })}
     </nav>
@@ -45,19 +45,46 @@ export default function AppShell({ children }) {
   const [navigating, setNavigating] = useState(false);
 
   useEffect(() => {
-    if (!getToken()) router.replace("/login");
-    else setReady(true);
+    let mounted = true;
+
+    function handleSessionExpired() {
+      clearToken();
+      router.replace("/login");
+    }
+
+    async function verify() {
+      if (!getToken()) {
+        router.replace("/login");
+        return;
+      }
+      try {
+        await api("/auth/me");
+        if (mounted) setReady(true);
+      } catch {
+        clearToken();
+        router.replace("/login");
+      }
+    }
+
+    window.addEventListener("agenthire:session-expired", handleSessionExpired);
+    verify();
+    return () => {
+      mounted = false;
+      window.removeEventListener("agenthire:session-expired", handleSessionExpired);
+    };
   }, [router]);
 
   useEffect(() => {
     setNavigating(false);
   }, [pathname]);
 
-  function handleNavigate(href) {
+  function handleNavigate(href, event) {
     setOpen(false);
-    if (href === pathname) return;
+    if (href === pathname) {
+      event?.preventDefault();
+      return;
+    }
     setNavigating(true);
-    router.push(href);
   }
 
   function logout() {
@@ -87,7 +114,7 @@ export default function AppShell({ children }) {
         </div>
       </header>
 
-      <aside className="fixed bottom-0 left-0 top-16 hidden w-60 border-r border-slate-200 bg-white md:block">
+      <aside className="fixed bottom-0 left-0 top-16 z-40 hidden w-60 border-r border-slate-200 bg-white md:block">
         <div className="flex h-full flex-col p-3">
           <div className="mb-4 rounded-md border border-teal-100 bg-teal-50 px-3 py-3">
             <p className="text-xs font-medium uppercase tracking-wide text-teal-700">Workspace</p>

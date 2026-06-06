@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ArrowRight, BarChart3, CheckCircle2, GitBranch, ShieldCheck, Sparkles } from "lucide-react";
 import { getToken } from "../lib/api.js";
+import { resolveSession } from "../lib/session.js";
 import { Button } from "../components/ui/Button.js";
 import { PublicHeader, PublicFooter } from "../components/PublicChrome.js";
 
@@ -14,8 +16,22 @@ const features = [
 ];
 
 export default function Home() {
+  const router = useRouter();
   const [hasToken, setHasToken] = useState(false);
-  useEffect(() => setHasToken(Boolean(getToken())), []);
+  useEffect(() => {
+    let mounted = true;
+
+    async function checkSession() {
+      setHasToken(Boolean(getToken()));
+      const session = await resolveSession();
+      if (mounted && session) router.replace(session.redirectTo);
+    }
+
+    checkSession();
+    return () => {
+      mounted = false;
+    };
+  }, [router]);
   return (
     <main className="flex h-screen flex-col overflow-hidden bg-[#f4f7f7]">
       <PublicHeader ctaHref={hasToken ? "/dashboard" : "/signup"} ctaLabel={hasToken ? "Open Dashboard" : "Create Account"} />

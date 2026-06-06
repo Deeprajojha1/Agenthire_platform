@@ -1,0 +1,36 @@
+{
+  "feature": "candidate-portal",
+  "roles": ["candidate", "recruiter", "admin"],
+  "default_public_registration_role": "candidate",
+  "routes": {
+    "auth": {
+      "signup": "POST /candidate/auth/signup",
+      "login": "POST /candidate/auth/login",
+      "me": "GET /candidate/auth/me"
+    },
+    "portal": {
+      "dashboard": "GET /candidate/dashboard",
+      "application_details": "GET /candidate/applications/:id",
+      "notifications": "GET /candidate/notifications",
+      "mark_notification_read": "PATCH /candidate/notifications/:id/read",
+      "mark_all_notifications_read": "PATCH /candidate/notifications/read-all"
+    }
+  },
+  "workflow_events": [
+    "application_submitted",
+    "resume_parsed",
+    "embedding_completed",
+    "matching_completed",
+    "shortlisting_completed",
+    "waiting_for_recruiter_review",
+    "interview_generated",
+    "email_sent",
+    "application_rejected",
+    "application_approved"
+  ],
+  "candidate_steps": ["Resume Upload", "AI Screening", "Recruiter Review", "Interview", "Final Decision"],
+  "security": {
+    "ownership": "Candidates can read only applications and notifications associated with their authenticated email/user id.",
+    "role_escalation": "Candidate signup ignores role input and always creates role=candidate."
+  }
+}

@@ -13,6 +13,7 @@ import { shortlistingAgent } from "../agents/shortlistingAgent.js";
 import { NODE_STATUS, WORKFLOW_STATUS } from "../constants/workflowStatus.js";
 import { loadHiringSpec, loadSpec, loadWorkflowSpec, mergeJobWithHiringSpec } from "../utils/specLoader.js";
 import { logWorkflowFailure } from "../utils/workflowFailureLogger.js";
+import { publishCandidateEvent } from "../services/candidate/eventService.js";
 
 const agents = {
   resume_parser: resumeParserAgent,
@@ -27,6 +28,15 @@ const agents = {
 const WorkflowState = Annotation.Root({
   context: Annotation()
 });
+
+const successEvents = {
+  resume_parser: "resume_parsed",
+  embedding_agent: "embedding_completed",
+  matching_agent: "matching_completed",
+  shortlisting_agent: "shortlisting_completed",
+  interview_agent: "interview_generated",
+  email_agent: "email_sent"
+};
 
 function ensureNodeStates(workflow, order) {
   if (workflow.node_states?.length) return workflow.node_states;
@@ -78,6 +88,7 @@ async function executePersistedAgent({ workflow, candidate, agentName, context, 
     workflow.approval_status = "pending";
     await WorkflowLog.create({ workflow_id: workflow._id, agent_name: agentName, output: output.data, status: "waiting_approval" });
     await workflow.save();
+    await publishCandidateEvent({ candidateId: candidate._id, workflowId: workflow._id, event: "waiting_for_recruiter_review" });
     return context;
   }
 
@@ -103,10 +114,16 @@ async function executePersistedAgent({ workflow, candidate, agentName, context, 
       if (agentName === "shortlisting_agent") {
         candidate.status = output.data.decision;
         await candidate.save();
+        if (["reject", "rejected"].includes(output.data.decision)) {
+          await publishCandidateEvent({ candidateId: candidate._id, workflowId: workflow._id, event: "application_rejected", payload: { status: output.data.decision } });
+        }
       }
 
       workflow.context = persistedContext(context);
       await workflow.save();
+      if (successEvents[agentName]) {
+        await publishCandidateEvent({ candidateId: candidate._id, workflowId: workflow._id, event: successEvents[agentName], payload: { node: agentName } });
+      }
       return context;
     } catch (error) {
       workflow.retry_count += 1;

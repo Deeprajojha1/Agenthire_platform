@@ -1,13 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { Copy, Search, SquarePlus } from "lucide-react";
+import { CalendarDays, Copy, Pencil, Search, SquarePlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "../../../components/ui/Button.js";
 import { Input } from "../../../components/ui/Input.js";
 import { PageLoader } from "../../../components/ui/PageLoader.js";
 import { api } from "../../../lib/api.js";
+
+function formatDate(value) {
+  if (!value) return "No deadline";
+  return new Intl.DateTimeFormat("en", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value));
+}
 
 export default function JobsPage() {
   const [jobs, setJobs] = useState([]);
@@ -61,7 +66,8 @@ export default function JobsPage() {
       job.description,
       ...(job.required_skills || []),
       ...(job.preferred_skills || []),
-      job.min_experience?.toString()
+      job.min_experience?.toString(),
+      job.application_deadline ? formatDate(job.application_deadline) : ""
     ].filter(Boolean).some((value) => value.toLowerCase().includes(normalizedQuery));
   });
   if (loading) return <PageLoader label="Loading jobs..." />;
@@ -96,13 +102,19 @@ export default function JobsPage() {
               <div className="min-w-0 flex-1">
                 <h2 className="font-medium">{job.title}</h2>
                 <p className="mt-1 line-clamp-3 text-sm leading-6 text-slate-600">{job.description}</p>
+                <p className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-slate-500">
+                  <CalendarDays size={14} /> Deadline: {formatDate(job.application_deadline)}
+                </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {(job.required_skills || []).slice(0, 5).map((skill) => (
                     <span key={skill} className="rounded bg-teal-50 px-2 py-1 text-xs font-medium text-teal-800">{skill}</span>
                   ))}
                 </div>
               </div>
-              <Button variant="outline" onClick={() => copyLink(job._id)}><Copy size={16} />Copy public apply link</Button>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" asChild><Link href={`/dashboard/jobs/${job._id}/edit`}><Pencil size={16} />Edit</Link></Button>
+                <Button variant="outline" onClick={() => copyLink(job._id)}><Copy size={16} />Copy public apply link</Button>
+              </div>
             </div>
           </div>
         ))}

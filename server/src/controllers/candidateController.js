@@ -2,7 +2,7 @@ import * as candidateService from "../services/candidateService.js";
 import { jsonResponse } from "../utils/response.js";
 
 export async function uploadCandidate(req, res) {
-  jsonResponse(res, await candidateService.uploadCandidate(req.body, req.file), 201);
+  jsonResponse(res, await candidateService.uploadCandidate(req.body, req.file, req.user), 201);
 }
 
 export async function checkApplication(req, res) {

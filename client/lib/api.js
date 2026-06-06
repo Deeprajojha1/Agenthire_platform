@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 
 function getCookieToken() {
   if (typeof document === "undefined") return null;
@@ -23,15 +23,36 @@ export function clearToken() {
   document.cookie = "agenthire_token=; path=/; max-age=0";
 }
 
+function isSessionError(response, message) {
+  const normalized = String(message || "").toLowerCase();
+  return (
+    response.status === 401 &&
+    (normalized.includes("invalid session") ||
+      normalized.includes("authentication required") ||
+      normalized.includes("session expired"))
+  );
+}
+
+function notifySessionExpired() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("agenthire:session-expired"));
+}
+
 export async function api(path, options = {}) {
   const token = getToken();
   const headers = { ...(options.headers || {}) };
   if (!(options.body instanceof FormData)) headers["Content-Type"] = "application/json";
   if (token) headers.Authorization = `Bearer ${token}`;
   const response = await fetch(`${API_URL}${path}`, { ...options, headers });
-  const json = await response.json();
+  const json = await response.json().catch(() => ({ success: false, error: { message: "Request failed" } }));
   if (!response.ok || !json.success) {
-    throw new Error(json.error?.message || "Request failed");
+    const message = json.error?.message || "Request failed";
+    if (isSessionError(response, message)) {
+      clearToken();
+      notifySessionExpired();
+      throw new Error("Session expired. Please log in again.");
+    }
+    throw new Error(message);
   }
   return json.data;
 }

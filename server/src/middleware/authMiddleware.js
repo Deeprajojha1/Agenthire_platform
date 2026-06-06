@@ -21,9 +21,31 @@ export async function requireAuth(req, res, next) {
   }
 }
 
+export async function optionalAuth(req, res, next) {
+  try {
+    const header = req.headers.authorization || "";
+    const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+    if (!token) return next();
+
+    const payload = jwt.verify(token, env.JWT_SECRET);
+    const user = await User.findById(payload.sub).select("-password");
+    if (user) req.user = user;
+    return next();
+  } catch {
+    return next();
+  }
+}
+
 export function requireRecruiter(req, res, next) {
   if (!["recruiter", "admin"].includes(req.user?.role)) {
     return res.status(403).json({ success: false, error: { message: "Recruiter access required" } });
+  }
+  return next();
+}
+
+export function requireCandidate(req, res, next) {
+  if (req.user?.role !== "candidate") {
+    return res.status(403).json({ success: false, error: { message: "Candidate access required" } });
   }
   return next();
 }

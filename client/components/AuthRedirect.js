@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { api, clearToken, getToken } from "../lib/api.js";
+import { resolveSession } from "../lib/session.js";
 import { PageLoader } from "./ui/PageLoader.js";
 
 export default function AuthRedirect({ children }) {
@@ -13,18 +13,12 @@ export default function AuthRedirect({ children }) {
     let mounted = true;
 
     async function verifySession() {
-      const token = getToken();
-      if (!token) {
-        if (mounted) setChecking(false);
+      const session = await resolveSession();
+      if (session) {
+        router.replace(session.redirectTo);
         return;
       }
-      try {
-        await api("/auth/me");
-        router.replace("/dashboard");
-      } catch {
-        clearToken();
-        if (mounted) setChecking(false);
-      }
+      if (mounted) setChecking(false);
     }
 
     verifySession();

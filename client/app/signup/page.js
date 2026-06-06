@@ -22,8 +22,8 @@ export default function SignupPage() {
     const form = new FormData(event.currentTarget);
     try {
       await signup({ name: form.get("name"), email: form.get("email"), password: form.get("password") });
-      toast.success("Recruiter account created");
-      router.push("/dashboard");
+      toast.success("Candidate account created");
+      router.push("/candidate/dashboard");
     } catch (err) {
       setError(err.message);
       toast.error(err.message);
@@ -35,15 +35,15 @@ export default function SignupPage() {
   return (
     <AuthRedirect>
       <AuthShell
-        title="Create a recruiter account and start screening candidates."
-        subtitle="Set up your secure workspace, create jobs, share public apply links, and let AgentHire run the application workflow."
+        title="Create your candidate account."
+        subtitle="Track applications, workflow progress, match scores, and notifications from one candidate portal."
         footerText="Already have an account?"
         footerHref="/login"
         footerLabel="Log in"
       >
         <form method="post" onSubmit={submit}>
           <h2 className="text-2xl font-semibold text-slate-950">Create account</h2>
-          <p className="mt-2 text-sm text-slate-600">Your account will be created with recruiter access.</p>
+          <p className="mt-2 text-sm text-slate-600">Your account will be created with candidate access.</p>
           <div className="mt-6 space-y-4">
             <label className="block text-sm font-medium text-slate-700">
               Full name

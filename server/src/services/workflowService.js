@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import Workflow from "../models/Workflow.js";
 import WorkflowLog from "../models/WorkflowLog.js";
+import Candidate from "../models/Candidate.js";
+import { publishCandidateEvent } from "./candidate/eventService.js";
 import { loadSpec, loadWorkflowSpec } from "../utils/specLoader.js";
 import { runHiringWorkflow } from "../workflows/hiringWorkflow.js";
 
@@ -51,11 +53,19 @@ export async function approveWorkflow(workflowId, approved) {
   if (!approved) {
     workflow.status = "completed";
     await workflow.save();
+    const candidate = await Candidate.findById(workflow.candidate_id);
+    if (candidate) {
+      candidate.status = "rejected";
+      await candidate.save();
+      await publishCandidateEvent({ candidateId: candidate._id, workflowId: workflow._id, event: "application_rejected" });
+    }
     return workflow;
   }
   const node = workflow.node_states.find((item) => item.name === "human_approval");
   if (node) node.status = "success";
   await workflow.save();
+  const candidate = await Candidate.findById(workflow.candidate_id);
+  if (candidate) await publishCandidateEvent({ candidateId: candidate._id, workflowId: workflow._id, event: "application_approved" });
   return runHiringWorkflow(workflow._id, { approved: true });
 }
 

@@ -8,6 +8,8 @@ import jobRoutes from "./routes/jobRoutes.js";
 import candidateRoutes from "./routes/candidateRoutes.js";
 import workflowRoutes from "./routes/workflowRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
+import candidateAuthRoutes from "./routes/candidate/authRoutes.js";
+import candidatePortalRoutes from "./routes/candidate/portalRoutes.js";
 import { env } from "./config/env.js";
 import { errorHandler, notFound } from "./middleware/errorMiddleware.js";
 import { jsonResponse } from "./utils/response.js";
@@ -39,6 +41,8 @@ export function createApp() {
 
   app.get("/health", (req, res) => jsonResponse(res, { status: "healthy" }));
   app.use("/auth", authRoutes);
+  app.use("/candidate/auth", candidateAuthRoutes);
+  app.use("/candidate", candidatePortalRoutes);
   app.use("/jobs", jobRoutes);
   app.use("/candidates", candidateRoutes);
   app.use("/workflow", workflowRoutes);

@@ -10,7 +10,7 @@ export function Button({ className, variant = "primary", asChild = false, childr
   }[variant] || "bg-teal-700 text-white shadow-sm hover:bg-teal-800";
   const mergedClassName = cn("inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium transition disabled:pointer-events-none disabled:opacity-60", styles, className);
   if (asChild && isValidElement(children)) {
-    return cloneElement(children, { className: cn(mergedClassName, children.props.className), ...props });
+    return cloneElement(children, { suppressHydrationWarning: true, className: cn(mergedClassName, children.props.className), ...props });
   }
-  return <button className={mergedClassName} {...props}>{children}</button>;
+  return <button suppressHydrationWarning className={mergedClassName} {...props}>{children}</button>;
 }

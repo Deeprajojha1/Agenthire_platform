@@ -1,5 +1,6 @@
 import { unlink } from "fs/promises";
 import Candidate from "../models/Candidate.js";
+import { publishCandidateEvent } from "./candidate/eventService.js";
 import { getJob } from "./jobService.js";
 import { startWorkflowForCandidate } from "./workflowService.js";
 
@@ -16,6 +17,20 @@ async function removeUploadedFile(file) {
   }
 }
 
+function isPastDeadline(job) {
+  if (!job.application_deadline) return false;
+  const deadline = new Date(job.application_deadline);
+  deadline.setHours(23, 59, 59, 999);
+  return deadline.getTime() < Date.now();
+}
+
+function assertApplicationOpen(job) {
+  if (!isPastDeadline(job)) return;
+  const error = new Error("The application deadline for this job has passed.");
+  error.statusCode = 400;
+  throw error;
+}
+
 export async function checkApplication(payload) {
   const job = await getJob(payload.job_id);
   const existing = await Candidate.findOne({ job_id: job._id, email: normalizeEmail(payload.email) }).select("_id status created_at");
@@ -25,14 +40,16 @@ export async function checkApplication(payload) {
   };
 }
 
-export async function uploadCandidate(payload, file) {
+export async function uploadCandidate(payload, file, user = null) {
   if (!file) {
     const error = new Error("Resume PDF is required");
     error.statusCode = 400;
     throw error;
   }
   const job = await getJob(payload.job_id);
+  assertApplicationOpen(job);
   const email = normalizeEmail(payload.email);
+  const candidateUserId = user?.role === "candidate" && user.email === email ? user._id : null;
   const existing = await Candidate.findOne({ job_id: job._id, email }).select("_id");
   if (existing) {
     await removeUploadedFile(file);
@@ -44,6 +61,7 @@ export async function uploadCandidate(payload, file) {
   try {
     candidate = await Candidate.create({
       ...payload,
+      candidate_user_id: candidateUserId,
       email,
       job_id: job._id,
       resume_url: file.path
@@ -58,6 +76,7 @@ export async function uploadCandidate(payload, file) {
     throw error;
   }
   const workflow = await startWorkflowForCandidate(candidate._id, job._id);
+  await publishCandidateEvent({ candidateId: candidate._id, workflowId: workflow._id, event: "application_submitted" });
   return { candidate, workflow };
 }
 
