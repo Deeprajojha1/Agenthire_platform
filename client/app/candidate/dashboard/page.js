@@ -15,8 +15,15 @@ function formatDate(value) {
 
 function statusClass(status) {
   if (["reject", "rejected"].includes(status)) return "bg-red-50 text-red-700";
-  if (["shortlist", "approved", "selected"].includes(status)) return "bg-emerald-50 text-emerald-700";
+  if (["shortlist", "approved", "selected", "hired", "advanced"].includes(status)) return "bg-emerald-50 text-emerald-700";
   return "bg-amber-50 text-amber-700";
+}
+
+function statusLabel(status) {
+  if (status === "hired" || status === "advanced") return "Hired";
+  if (status === "rejected" || status === "reject") return "Rejected";
+  if (status === "hold") return "On Hold";
+  return status;
 }
 
 function resultCount(data) {
@@ -117,7 +124,7 @@ export default function CandidateDashboardPage() {
                   <p className="mt-1 text-sm text-slate-600">{application.candidate?.email || "Email not available"} - Applied {formatDate(application.applied_at)}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusClass(application.status)}`}>{application.status}</span>
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusClass(application.status)}`}>{statusLabel(application.status)}</span>
                   <ChevronRight size={18} className="text-slate-400" />
                 </div>
               </div>

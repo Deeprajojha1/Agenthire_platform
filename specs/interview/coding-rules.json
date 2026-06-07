@@ -1,0 +1,6 @@
+{
+  "supported_languages": ["javascript", "typescript", "python"],
+  "supported_types": ["write", "fix", "explain", "optimize"],
+  "default_language": "javascript",
+  "store_candidate_code": true
+}

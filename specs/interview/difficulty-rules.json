@@ -1,0 +1,23 @@
+{
+  "default": "standard",
+  "levels": {
+    "starter": {
+      "intro": 1,
+      "technical": 5,
+      "behavioral": 0,
+      "coding": 1
+    },
+    "standard": {
+      "intro": 1,
+      "technical": 10,
+      "behavioral": 1,
+      "coding": 2
+    },
+    "advanced": {
+      "intro": 1,
+      "technical": 15,
+      "behavioral": 2,
+      "coding": 3
+    }
+  }
+}

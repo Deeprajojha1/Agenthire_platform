@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Workflow from "../models/Workflow.js";
 import WorkflowLog from "../models/WorkflowLog.js";
 import Candidate from "../models/Candidate.js";
+import Interview from "../models/Interview.js";
 import { publishCandidateEvent } from "./candidate/eventService.js";
 import { loadSpec, loadWorkflowSpec } from "../utils/specLoader.js";
 import { runHiringWorkflow } from "../workflows/hiringWorkflow.js";
@@ -42,7 +43,7 @@ export async function retryWorkflow(workflowId) {
   return runHiringWorkflow(workflow._id);
 }
 
-export async function approveWorkflow(workflowId, approved) {
+export async function approveWorkflow(workflowId, approved, options = {}) {
   const workflow = await Workflow.findById(workflowId);
   if (!workflow) {
     const error = new Error("Workflow not found");
@@ -61,12 +62,105 @@ export async function approveWorkflow(workflowId, approved) {
     }
     return workflow;
   }
+  const interviewScheduledAt = new Date(options.interview_scheduled_at);
+  if (Number.isNaN(interviewScheduledAt.getTime())) {
+    const error = new Error("Valid interview time is required");
+    error.statusCode = 400;
+    throw error;
+  }
+  workflow.interview_scheduled_at = interviewScheduledAt;
+  workflow.interview_difficulty = options.interview_difficulty || "standard";
+  workflow.context = {
+    ...workflow.context,
+    interviewScheduledAt: interviewScheduledAt.toISOString(),
+    interviewDifficulty: workflow.interview_difficulty
+  };
   const node = workflow.node_states.find((item) => item.name === "human_approval");
   if (node) node.status = "success";
   await workflow.save();
   const candidate = await Candidate.findById(workflow.candidate_id);
-  if (candidate) await publishCandidateEvent({ candidateId: candidate._id, workflowId: workflow._id, event: "application_approved" });
+  if (candidate) await publishCandidateEvent({
+    candidateId: candidate._id,
+    workflowId: workflow._id,
+    event: "application_approved",
+    payload: { interview_scheduled_at: interviewScheduledAt.toISOString() }
+  });
   return runHiringWorkflow(workflow._id, { approved: true });
+}
+
+function verifyInterviewForDecision(interview) {
+  const policy = loadSpec("interview/auto-evaluation-policy.json");
+  const transcriptFound = interview.answers?.some((answer) => answer.clean_transcript || answer.manual_text);
+  const codeFound = interview.answers?.some((answer) => answer.code);
+  return {
+    verified: Boolean(
+      interview &&
+      interview.status === "completed" &&
+      typeof interview.overall_score === "number" &&
+      interview.recommendation &&
+      transcriptFound
+    ),
+    policy,
+    checks: {
+      overall_score: typeof interview?.overall_score === "number",
+      recommendation: Boolean(interview?.recommendation),
+      transcript: Boolean(transcriptFound),
+      code_submission: Boolean(codeFound)
+    }
+  };
+}
+
+export async function recruiterReview(workflowId, decision, options = {}) {
+  const workflow = await Workflow.findById(workflowId);
+  if (!workflow) {
+    const error = new Error("Workflow not found");
+    error.statusCode = 404;
+    throw error;
+  }
+  const interview = await Interview.findOne({ workflow_id: workflow._id }).sort({ created_at: -1 });
+  if (!interview) {
+    const error = new Error("Interview result is required before recruiter review");
+    error.statusCode = 400;
+    throw error;
+  }
+  const verification = verifyInterviewForDecision(interview);
+  if (!verification.verified) {
+    const error = new Error("Interview result is not ready for recruiter review");
+    error.statusCode = 400;
+    error.details = verification.checks;
+    throw error;
+  }
+
+  const candidate = await Candidate.findById(workflow.candidate_id);
+  if (candidate) {
+    candidate.status = decision === "reject" ? "rejected" : decision === "hold" ? "hold" : "hired";
+    await candidate.save();
+  }
+
+  const recruiterNode = workflow.node_states.find((node) => node.name === "recruiter_review");
+  if (recruiterNode) {
+    recruiterNode.status = "success";
+    recruiterNode.output = {
+      decision,
+      note: options.note || "",
+      auto_verification: verification,
+      reviewed_at: new Date()
+    };
+    recruiterNode.completed_at = new Date();
+  }
+  workflow.current_state = "final_email_agent";
+  workflow.context = {
+    ...workflow.context,
+    recruiterReview: {
+      decision,
+      note: options.note || "",
+      autoVerification: verification,
+      reviewedAt: new Date().toISOString()
+    }
+  };
+  workflow.status = "running";
+  await workflow.save();
+  return runHiringWorkflow(workflow._id, { approved: true, interviewCompleted: true, recruiterReviewed: true });
 }
 
 export async function getWorkflow(id) {
@@ -77,12 +171,24 @@ export async function getWorkflow(id) {
     throw error;
   }
   const logs = await WorkflowLog.find({ workflow_id: id }).sort({ created_at: 1 });
-  return { workflow, logs, node_state_spec: loadSpec("workflow/node-states.json") };
+  const interview = await Interview.findOne({ workflow_id: workflow._id }).sort({ created_at: -1 });
+  return { workflow: { ...workflow.toObject(), interview }, logs, node_state_spec: loadSpec("workflow/node-states.json") };
 }
 
 export async function listWorkflowSummaries() {
   const workflows = await Workflow.find().populate("candidate_id job_id").sort({ created_at: -1 });
-  return { workflows, node_state_spec: loadSpec("workflow/node-states.json") };
+  const spec = loadWorkflowSpec();
+  const interviews = await Interview.find({ workflow_id: { $in: workflows.map((workflow) => workflow._id) } });
+  const interviewByWorkflow = new Map(interviews.map((interview) => [interview.workflow_id.toString(), interview]));
+  return {
+    workflows: workflows.map((workflow) => ({
+      ...workflow.toObject(),
+      execution_order: spec.workflow,
+      node_states: spec.workflow.map((name) => workflow.node_states.find((node) => node.name === name) || ({ name, status: "pending", attempts: 0 })),
+      interview: interviewByWorkflow.get(workflow._id.toString()) || null
+    })),
+    node_state_spec: loadSpec("workflow/node-states.json")
+  };
 }
 
 export async function deleteWorkflow(workflowId) {

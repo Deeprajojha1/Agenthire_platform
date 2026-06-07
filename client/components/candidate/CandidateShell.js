@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bell, BriefcaseBusiness, LayoutDashboard, LogOut, Menu, Sparkles, X } from "lucide-react";
+import { Bell, BriefcaseBusiness, CalendarClock, LayoutDashboard, LogOut, Menu, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { api, clearToken, getToken } from "../../lib/api.js";
 import { Button } from "../ui/Button.js";
@@ -14,6 +14,7 @@ let candidateSessionVerified = false;
 const items = [
   ["/candidate/dashboard", "Applications", LayoutDashboard],
   ["/candidate/jobs", "Jobs", BriefcaseBusiness],
+  ["/candidate/interviews", "Interviews", CalendarClock],
   ["/candidate/notifications", "Notifications", Bell]
 ];
 

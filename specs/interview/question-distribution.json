@@ -1,0 +1,7 @@
+{
+  "intro_first": true,
+  "minimum_behavioral": 1,
+  "minimum_technical": 2,
+  "minimum_coding": 1,
+  "coding_required_roles": ["Frontend", "Backend", "Full Stack", "Software Engineer"]
+}

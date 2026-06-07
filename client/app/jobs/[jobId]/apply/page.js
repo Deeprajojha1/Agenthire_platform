@@ -19,12 +19,14 @@ export default function ApplyPage() {
   const [checkingEmail, setCheckingEmail] = useState(false);
   const [duplicateMessage, setDuplicateMessage] = useState("");
   const [job, setJob] = useState(null);
+  const [currentTime, setCurrentTime] = useState(0);
 
-  function isExpired(value) {
+  function isExpired(value, now) {
     if (!value) return false;
+    if (!now) return false;
     const deadline = new Date(value);
     deadline.setHours(23, 59, 59, 999);
-    return deadline.getTime() < Date.now();
+    return deadline.getTime() < now;
   }
 
   function formatDate(value) {
@@ -32,11 +34,17 @@ export default function ApplyPage() {
     return new Intl.DateTimeFormat("en", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value));
   }
 
-  const deadlinePassed = isExpired(job?.application_deadline);
+  const deadlinePassed = isExpired(job?.application_deadline, currentTime);
 
   useEffect(() => {
     api(`/jobs/${jobId}`).then(setJob).catch((error) => toast.error(error.message));
   }, [jobId]);
+
+  useEffect(() => {
+    setCurrentTime(Date.now());
+    const timer = window.setInterval(() => setCurrentTime(Date.now()), 60000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (!getToken()) return;

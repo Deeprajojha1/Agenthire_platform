@@ -5,7 +5,12 @@
     "matching_agent",
     "shortlisting_agent",
     "human_approval",
+    "interview_scheduling",
+    "email_agent",
     "interview_agent",
-    "email_agent"
+    "ai_interview_engine",
+    "evaluation_agent",
+    "recruiter_review",
+    "final_email_agent"
   ]
 }

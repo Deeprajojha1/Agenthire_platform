@@ -1,0 +1,7 @@
+{
+  "provider": "murf",
+  "fallback": "text_question",
+  "voice_id": "en-US-natalie",
+  "format": "mp3",
+  "timeout_ms": 15000
+}

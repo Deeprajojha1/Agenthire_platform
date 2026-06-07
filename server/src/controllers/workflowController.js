@@ -10,7 +10,16 @@ export async function retryWorkflow(req, res) {
 }
 
 export async function approveWorkflow(req, res) {
-  jsonResponse(res, await workflowService.approveWorkflow(req.body.workflow_id, req.body.approved));
+  jsonResponse(res, await workflowService.approveWorkflow(req.body.workflow_id, req.body.approved, {
+    interview_scheduled_at: req.body.interview_scheduled_at,
+    interview_difficulty: req.body.interview_difficulty
+  }));
+}
+
+export async function recruiterReview(req, res) {
+  jsonResponse(res, await workflowService.recruiterReview(req.body.workflow_id, req.body.decision, {
+    note: req.body.note
+  }));
 }
 
 export async function getWorkflow(req, res) {

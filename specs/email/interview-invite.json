@@ -1,4 +1,7 @@
 {
   "subject": "Interview invitation for {{role}}",
-  "body": "Hello {{name}}, your application for {{role}} has moved forward. We would like to invite you to the next interview round."
+  "cta_label": "Join Interview",
+  "mode": "Online",
+  "support_email": "support@agenthire.local",
+  "body": "Hello {{candidateName}},\n\nCongratulations!\n\nWe are pleased to inform you that your application for the {{role}} position has been shortlisted for the next stage of our hiring process.\n\nInterview Details\nDate: {{interviewDate}}\nTime: {{interviewTime}}\nMode: {{interviewMode}}\n\nDuring this round, we may discuss your technical skills, projects, problem-solving approach, and experience relevant to the role.\n\nPlease join on time, use a stable internet connection, and keep your resume and project details ready for discussion.\n\nJoin Interview: {{interviewLink}}\n\nBest regards,\nAgentHire Team"
 }

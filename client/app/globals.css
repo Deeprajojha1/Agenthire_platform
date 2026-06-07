@@ -21,3 +21,12 @@ body {
   background: #ccfbf1;
   color: #134e4a;
 }
+
+.scrollbar-hidden {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}

@@ -1,11 +1,13 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { toast } from "sonner";
+import { Button } from "../../../../components/ui/Button.js";
 import { PageLoader } from "../../../../components/ui/PageLoader.js";
-import { api, getToken } from "../../../../lib/api.js";
+import { api, getToken, SOCKET_URL } from "../../../../lib/api.js";
 
 function formatDate(value) {
   if (!value) return "Not available";
@@ -29,6 +31,7 @@ function Bar({ label, value }) {
 
 export default function CandidateApplicationPage() {
   const params = useParams();
+  const router = useRouter();
   const applicationId = params?.id;
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -47,8 +50,7 @@ export default function CandidateApplicationPage() {
     const token = getToken();
     if (!token) return undefined;
 
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-    const socket = io(socketUrl === "/api" ? "http://localhost:5000" : socketUrl, { auth: { token } });
+    const socket = io(SOCKET_URL, { auth: { token } });
     socket.emit("application:subscribe", applicationId);
     socket.on("workflow:update", (event) => {
       toast.info(event.message || "Application updated");
@@ -69,7 +71,18 @@ export default function CandidateApplicationPage() {
       {application && (
         <div className="space-y-6">
           <div className="rounded-md border border-slate-200 bg-white p-6">
-            <p className="text-sm font-medium text-teal-700">Application Details</p>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => router.back()}
+                aria-label="Go back"
+                title="Go back"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-600 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+              >
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+              </button>
+              <p className="text-sm font-medium text-teal-700">Application Details</p>
+            </div>
             <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h1 className="text-2xl font-semibold text-slate-950">{job.title || "Application"}</h1>
@@ -118,7 +131,7 @@ export default function CandidateApplicationPage() {
 
             <div className="rounded-md border border-slate-200 bg-white p-6">
               <h2 className="text-lg font-semibold text-slate-950">Timeline</h2>
-              <div className="mt-4 space-y-3">
+              <div className="scrollbar-hidden mt-4 max-h-80 space-y-3 overflow-y-auto pr-2">
                 {data.timeline.length === 0 && <p className="text-sm text-slate-600">No workflow events yet.</p>}
                 {data.timeline.map((item) => (
                   <div key={item.id} className="border-l-2 border-teal-200 pl-3">

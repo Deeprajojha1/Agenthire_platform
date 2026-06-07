@@ -20,6 +20,8 @@ const workflowSchema = new mongoose.Schema(
     current_state: { type: String, default: "pending" },
     status: { type: String, enum: ["pending", "running", "waiting_approval", "completed", "failed"], default: "pending" },
     approval_status: { type: String, enum: ["pending", "approved", "rejected", "not_required"], default: "pending" },
+    interview_scheduled_at: Date,
+    interview_difficulty: { type: String, enum: ["starter", "standard", "advanced"], default: "standard" },
     execution_order: [{ type: String }],
     node_states: [nodeStateSchema],
     retry_count: { type: Number, default: 0 },

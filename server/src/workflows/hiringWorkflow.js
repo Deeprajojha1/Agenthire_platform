@@ -21,8 +21,36 @@ const agents = {
   matching_agent: matchingAgent,
   shortlisting_agent: shortlistingAgent,
   human_approval: humanApprovalAgent,
+  interview_scheduling: async (context) => ({
+    success: true,
+    data: {
+      scheduled_at: context.interviewScheduledAt || null,
+      status: context.interviewScheduledAt ? "scheduled" : "pending_schedule"
+    }
+  }),
   interview_agent: interviewAgent,
-  email_agent: emailAgent
+  email_agent: emailAgent,
+  ai_interview_engine: async (context) => ({
+    success: true,
+    data: {
+      status: context.interviewSession?.status || "waiting_for_candidate",
+      interview_id: context.interviewSession?._id || null
+    }
+  }),
+  evaluation_agent: async (context) => ({
+    success: true,
+    data: context.interviewEvaluation || {
+      status: "pending_interview_completion",
+      recommendation: "Pending"
+    }
+  }),
+  recruiter_review: async (context) => ({
+    success: true,
+    data: {
+      status: "waiting_for_recruiter_decision"
+    }
+  }),
+  final_email_agent: emailAgent
 };
 
 const WorkflowState = Annotation.Root({
@@ -34,13 +62,18 @@ const successEvents = {
   embedding_agent: "embedding_completed",
   matching_agent: "matching_completed",
   shortlisting_agent: "shortlisting_completed",
+  interview_scheduling: "interview_scheduled",
+  email_agent: "email_sent",
   interview_agent: "interview_generated",
-  email_agent: "email_sent"
+  ai_interview_engine: "interview_started",
+  evaluation_agent: "evaluation_ready",
+  recruiter_review: "waiting_for_recruiter_review",
+  final_email_agent: "email_sent"
 };
 
 function ensureNodeStates(workflow, order) {
-  if (workflow.node_states?.length) return workflow.node_states;
-  return order.map((name) => ({ name, status: NODE_STATUS.pending, attempts: 0 }));
+  const existing = new Map((workflow.node_states || []).map((node) => [node.name, node]));
+  return order.map((name) => existing.get(name) || ({ name, status: NODE_STATUS.pending, attempts: 0 }));
 }
 
 function applyOutput(context, agentName, output) {
@@ -48,8 +81,13 @@ function applyOutput(context, agentName, output) {
   if (agentName === "embedding_agent") context.embedding = output.data;
   if (agentName === "matching_agent") context.match = output.data;
   if (agentName === "shortlisting_agent") context.shortlist = output.data;
+  if (agentName === "interview_scheduling") context.interviewSchedule = output.data;
   if (agentName === "interview_agent") context.interview = output.data;
+  if (agentName === "ai_interview_engine") context.interviewEngine = output.data;
+  if (agentName === "evaluation_agent") context.interviewEvaluation = output.data;
+  if (agentName === "recruiter_review") context.recruiterReview = output.data;
   if (agentName === "email_agent") context.email = output.data;
+  if (agentName === "final_email_agent") context.finalEmail = output.data;
 }
 
 function persistedContext(context) {
@@ -58,8 +96,15 @@ function persistedContext(context) {
     embedding: context.embedding,
     match: context.match,
     shortlist: context.shortlist,
+    interviewSchedule: context.interviewSchedule,
     interview: context.interview,
-    email: context.email
+    interviewSession: context.interviewSession,
+    interviewEngine: context.interviewEngine,
+    interviewEvaluation: context.interviewEvaluation,
+    recruiterReview: context.recruiterReview,
+    interviewScheduledAt: context.interviewScheduledAt,
+    email: context.email,
+    finalEmail: context.finalEmail
   };
 }
 
@@ -89,6 +134,32 @@ async function executePersistedAgent({ workflow, candidate, agentName, context, 
     await WorkflowLog.create({ workflow_id: workflow._id, agent_name: agentName, output: output.data, status: "waiting_approval" });
     await workflow.save();
     await publishCandidateEvent({ candidateId: candidate._id, workflowId: workflow._id, event: "waiting_for_recruiter_review" });
+    return context;
+  }
+
+  if (agentName === "ai_interview_engine" && !options.interviewCompleted) {
+    const output = await agents[agentName](context);
+    applyOutput(context, agentName, output);
+    node.status = NODE_STATUS.waitingApproval;
+    node.output = output.data;
+    node.completed_at = new Date();
+    workflow.status = WORKFLOW_STATUS.waitingApproval;
+    await WorkflowLog.create({ workflow_id: workflow._id, agent_name: agentName, output: output.data, status: "waiting_approval" });
+    workflow.context = persistedContext(context);
+    await workflow.save();
+    return context;
+  }
+
+  if (agentName === "recruiter_review" && !options.recruiterReviewed) {
+    const output = await agents[agentName](context);
+    applyOutput(context, agentName, output);
+    node.status = NODE_STATUS.waitingApproval;
+    node.output = output.data;
+    node.completed_at = new Date();
+    workflow.status = WORKFLOW_STATUS.waitingApproval;
+    await WorkflowLog.create({ workflow_id: workflow._id, agent_name: agentName, output: output.data, status: "waiting_approval" });
+    workflow.context = persistedContext(context);
+    await workflow.save();
     return context;
   }
 
@@ -183,7 +254,16 @@ export async function runHiringWorkflow(workflowId, options = {}) {
   };
   const startIndex = Math.max(0, order.indexOf(workflow.current_state));
   const humanApprovalIndex = order.indexOf("human_approval");
-  const endIndex = !options.approved && humanApprovalIndex >= startIndex ? humanApprovalIndex : order.length - 1;
+  const aiInterviewIndex = order.indexOf("ai_interview_engine");
+  const recruiterReviewIndex = order.indexOf("recruiter_review");
+  let endIndex = order.length - 1;
+  if (!options.approved && humanApprovalIndex >= startIndex) {
+    endIndex = humanApprovalIndex;
+  } else if (!options.interviewCompleted && aiInterviewIndex >= startIndex) {
+    endIndex = aiInterviewIndex;
+  } else if (!options.recruiterReviewed && recruiterReviewIndex >= startIndex) {
+    endIndex = recruiterReviewIndex;
+  }
   const runnableOrder = order.slice(startIndex, endIndex + 1);
 
   if (!runnableOrder.length) {

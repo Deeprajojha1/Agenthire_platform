@@ -1,0 +1,6 @@
+{
+  "subject": "Congratulations - next steps for {{role}}",
+  "cta_label": "Complete Onboarding",
+  "support_email": "support@agenthire.local",
+  "body": "Hello {{candidateName}},\n\nCongratulations!\n\nWe are delighted to inform you that you have successfully cleared the interview process and have been selected for the {{role}} position.\n\nYour performance throughout the evaluation process demonstrated strong technical skills, problem-solving ability, and enthusiasm for learning.\n\nNext Steps\nReview the onboarding details provided below.\nComplete any required documentation.\nExpected Joining Date: {{joiningDate}}\n\nFurther instructions will be shared with you shortly.\n\nComplete Onboarding: {{onboardingLink}}\n\nCongratulations once again, and welcome aboard!\n\nBest regards,\nAgentHire Team"
+}

@@ -1,0 +1,12 @@
+{
+  "dimensions": [
+    "communication",
+    "technical_skill",
+    "problem_solving",
+    "coding_ability",
+    "confidence",
+    "role_fit"
+  ],
+  "score_max": 100,
+  "recommendations": ["Strong Hire", "Hire", "Hold", "Reject"]
+}

@@ -1,6 +1,7 @@
 import Candidate from "../../models/Candidate.js";
 import Job from "../../models/Job.js";
 import Notification from "../../models/Notification.js";
+import Interview from "../../models/Interview.js";
 import Workflow from "../../models/Workflow.js";
 import WorkflowLog from "../../models/WorkflowLog.js";
 import { loadSpec } from "../../utils/specLoader.js";
@@ -61,6 +62,18 @@ function workflowSteps(workflow) {
     label,
     status: index < currentIndex || workflow?.status === "completed" ? "completed" : index === currentIndex ? "current" : "pending"
   }));
+}
+
+function interviewDetails(workflow) {
+  if (!workflow) return null;
+  const scheduledAt = workflow.interview_scheduled_at || workflow.context?.interviewScheduledAt || null;
+  const material = workflow.context?.interview || null;
+  if (!scheduledAt && !material) return null;
+  return {
+    scheduled_at: scheduledAt,
+    difficulty: workflow.interview_difficulty || workflow.context?.interviewDifficulty || "standard",
+    material
+  };
 }
 
 function applicationSummary(candidate, workflow) {
@@ -185,6 +198,7 @@ export async function applicationDetails(user, applicationId) {
       recruiter_decision: workflow?.approval_status || "pending",
       workflow_steps: workflowSteps(workflow),
       match_score_breakdown: matchScoreBreakdown(workflow),
+      interview: interviewDetails(workflow),
       rejection_reason: rejectionReason(candidate, workflow)
     },
     timeline: logs.map((log) => ({
@@ -202,6 +216,8 @@ export async function listNotifications(user) {
   const applications = await candidateApplications(user);
   const workflows = await Workflow.find({ candidate_id: { $in: applications.map(({ candidate }) => candidate._id) } });
   const workflowByCandidate = new Map(workflows.map((workflow) => [workflow.candidate_id.toString(), workflow]));
+  const interviews = await Interview.find({ candidate_id: { $in: applications.map(({ candidate }) => candidate._id) } });
+  const interviewByCandidate = new Map(interviews.map((interview) => [interview.candidate_id.toString(), interview]));
   const logs = await WorkflowLog.find({ workflow_id: { $in: workflows.map((workflow) => workflow._id) } }).sort({ created_at: 1 });
   const logsByWorkflow = new Map();
   for (const log of logs) {
@@ -215,9 +231,11 @@ export async function listNotifications(user) {
     node_state_spec: loadSpec("workflow/node-states.json"),
     applications: applications.map(({ candidate }) => {
       const workflow = workflowByCandidate.get(candidate._id.toString());
+      const interview = interviewByCandidate.get(candidate._id.toString()) || null;
       return {
         application: applicationSummary(candidate, workflow),
         workflow,
+        interview,
         timeline: workflow ? (logsByWorkflow.get(workflow._id.toString()) || []).map((log) => ({
           id: log._id,
           event: log.agent_name,

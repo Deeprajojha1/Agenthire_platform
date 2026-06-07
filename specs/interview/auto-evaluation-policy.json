@@ -1,0 +1,16 @@
+{
+  "auto_verify": true,
+  "score_thresholds": {
+    "advance": 75,
+    "hold": 55,
+    "reject_below": 55
+  },
+  "required_review_fields": [
+    "overall_score",
+    "recommendation",
+    "transcript",
+    "code_submission"
+  ],
+  "decision_actions": ["advance", "hold", "reject"],
+  "final_decision_requires_human": true
+}
