@@ -67,10 +67,12 @@ function workflowSteps(workflow) {
 function interviewDetails(workflow) {
   if (!workflow) return null;
   const scheduledAt = workflow.interview_scheduled_at || workflow.context?.interviewScheduledAt || null;
+  const endsAt = workflow.interview_ends_at || workflow.context?.interviewEndsAt || null;
   const material = workflow.context?.interview || null;
   if (!scheduledAt && !material) return null;
   return {
     scheduled_at: scheduledAt,
+    ends_at: endsAt,
     difficulty: workflow.interview_difficulty || workflow.context?.interviewDifficulty || "standard",
     material
   };

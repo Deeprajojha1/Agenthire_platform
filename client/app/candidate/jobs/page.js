@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { BriefcaseBusiness, CalendarDays, Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import ApplicationForm from "../../../components/jobs/ApplicationForm.js";
 import { Button } from "../../../components/ui/Button.js";
 import { Input } from "../../../components/ui/Input.js";
 import { PageLoader } from "../../../components/ui/PageLoader.js";
@@ -25,6 +25,8 @@ export default function CandidateJobsPage() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
+  const [applyingJob, setApplyingJob] = useState(null);
+  const [submittedJobs, setSubmittedJobs] = useState(new Set());
 
   useEffect(() => {
     const controller = new AbortController();
@@ -96,7 +98,8 @@ export default function CandidateJobsPage() {
           {data.jobs.map((job) => (
             <div key={job.id} className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
               {(() => {
-                const missedDeadline = !job.already_applied && isExpired(job.application_deadline);
+                const alreadySubmitted = submittedJobs.has(job.id);
+                const missedDeadline = !job.already_applied && !alreadySubmitted && isExpired(job.application_deadline);
                 return (
                   <>
               <div className="flex items-start justify-between gap-3">
@@ -111,7 +114,7 @@ export default function CandidateJobsPage() {
                     <span className="inline-flex items-center gap-1"><CalendarDays size={13} />Deadline {formatDate(job.application_deadline)}</span>
                   </div>
                 </div>
-                {job.already_applied && <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Applied</span>}
+                {(job.already_applied || alreadySubmitted) && <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Applied</span>}
                 {missedDeadline && <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">Missing</span>}
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
@@ -120,14 +123,12 @@ export default function CandidateJobsPage() {
                 ))}
               </div>
               <div className="mt-5 flex flex-wrap gap-2">
-                {job.already_applied ? (
+                {job.already_applied || alreadySubmitted ? (
                   <Button variant="outline" disabled>Applied</Button>
                 ) : missedDeadline ? (
                   <Button variant="outline" disabled>Missing deadline</Button>
                 ) : (
-                  <Button asChild>
-                    <Link href={`/jobs/${job.id}/apply`}>Apply Now</Link>
-                  </Button>
+                  <Button type="button" onClick={() => setApplyingJob(job)}>Apply Now</Button>
                 )}
               </div>
                   </>
@@ -135,6 +136,26 @@ export default function CandidateJobsPage() {
               })()}
             </div>
           ))}
+        </div>
+      )}
+
+      {applyingJob && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6">
+          <button className="absolute inset-0" type="button" aria-label="Close application form" onClick={() => setApplyingJob(null)} />
+          <div className="relative max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-md border border-slate-200 bg-white p-5 shadow-2xl md:p-6">
+            <Button type="button" variant="ghost" className="absolute right-3 top-3 h-8 px-2" aria-label="Close" onClick={() => setApplyingJob(null)}>
+              <X size={17} />
+            </Button>
+            <ApplicationForm
+              jobId={applyingJob.id}
+              job={applyingJob}
+              compact
+              onSuccess={() => {
+                setSubmittedJobs((current) => new Set([...current, applyingJob.id]));
+                window.setTimeout(() => setApplyingJob(null), 900);
+              }}
+            />
+          </div>
         </div>
       )}
     </>

@@ -25,6 +25,7 @@ const agents = {
     success: true,
     data: {
       scheduled_at: context.interviewScheduledAt || null,
+      ends_at: context.interviewEndsAt || null,
       status: context.interviewScheduledAt ? "scheduled" : "pending_schedule"
     }
   }),
@@ -103,6 +104,11 @@ function persistedContext(context) {
     interviewEvaluation: context.interviewEvaluation,
     recruiterReview: context.recruiterReview,
     interviewScheduledAt: context.interviewScheduledAt,
+    interviewEndsAt: context.interviewEndsAt,
+    interviewDifficulty: context.interviewDifficulty,
+    interviewQuestionCount: context.interviewQuestionCount,
+    preferredLanguage: context.preferredLanguage,
+    interviewDocuments: context.interviewDocuments,
     email: context.email,
     finalEmail: context.finalEmail
   };

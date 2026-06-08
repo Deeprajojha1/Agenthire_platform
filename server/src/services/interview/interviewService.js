@@ -3,6 +3,7 @@ import Interview from "../../models/Interview.js";
 import Workflow from "../../models/Workflow.js";
 import { runHiringWorkflow } from "../../workflows/hiringWorkflow.js";
 import { loadSpec } from "../../utils/specLoader.js";
+import { retrieveInterviewContext } from "./knowledgeBaseService.js";
 import { persistRecording, synthesizeQuestionAudio, transcribeRecording } from "./voiceService.js";
 
 function candidateEmail(user) {
@@ -36,6 +37,25 @@ async function findOwnedCandidate(user, candidateId) {
 function normalizeDifficulty(value) {
   const rules = loadSpec("interview/difficulty-rules.json");
   return rules.levels[value] ? value : rules.default;
+}
+
+function resolveInterviewEndsAt(workflow, scheduledAt) {
+  const value = workflow.interview_ends_at || workflow.context?.interviewEndsAt || null;
+  if (value) return value;
+  return scheduledAt ? new Date(new Date(scheduledAt).getTime() + 60 * 60 * 1000).toISOString() : null;
+}
+
+function assertInterviewOpen(interview) {
+  if (interview.status === "completed") {
+    const error = new Error("Interview is already completed. Only one attempt is allowed.");
+    error.statusCode = 403;
+    throw error;
+  }
+  if (interview.ends_at && new Date(interview.ends_at).getTime() <= Date.now()) {
+    const error = new Error("Interview time has ended.");
+    error.statusCode = 403;
+    throw error;
+  }
 }
 
 function uniqueValues(values) {
@@ -91,6 +111,27 @@ function generatedTechnicalQuestions(material) {
     });
 }
 
+function questionSource(source = "general_knowledge", extra = {}) {
+  return { source, ...extra };
+}
+
+function documentQuestion(chunk, role, index) {
+  const text = String(chunk.text || "").replace(/\s+/g, " ").trim().slice(0, 260);
+  return {
+    prompt: `Based on ${chunk.fileName || "the uploaded interview document"}, explain how you would apply this guidance in a ${role} project: "${text}"`,
+    ...questionSource("interview_document", {
+      documentName: chunk.fileName,
+      chunkId: `${chunk.documentId || chunk.id || "chunk"}-${chunk.chunk_index ?? index}`,
+      similarity: chunk.score,
+      documentReference: {
+        documentId: chunk.documentId,
+        fileName: chunk.fileName
+      },
+      retrievedChunks: [chunk]
+    })
+  };
+}
+
 function codingTask(skill, role, language, index) {
   const normalized = skill.toLowerCase();
   const selectedLanguage = String(language || "").toLowerCase();
@@ -124,27 +165,45 @@ function codingTask(skill, role, language, index) {
   ][index % 3];
 }
 
-function baseQuestions({ material, role, difficulty, language, parsedResume, job }) {
+function questionPlan(difficulty, overrideCount) {
   const rules = loadSpec("interview/difficulty-rules.json");
-  const target = rules.levels[difficulty] || rules.levels[rules.default];
+  const target = { ...(rules.levels[difficulty] || rules.levels[rules.default]) };
+  const desiredTotal = Number(overrideCount || 0);
+  if (desiredTotal > 0) {
+    const fixedCount = (target.intro || 0) + (target.behavioral || 0) + (target.coding || 0);
+    target.technical = Math.max(0, desiredTotal - fixedCount);
+  }
+  return target;
+}
+
+function baseQuestions({ material, role, difficulty, language, parsedResume, job, retrievedChunks = [], questionCount }) {
+  const target = questionPlan(difficulty, questionCount);
   const skills = candidateSkills({ parsedResume, job });
   const primarySkills = skills.length ? skills : ["JavaScript", "React", "Node.js"];
   const generated = generatedTechnicalQuestions(material);
+  const documentTechnicalTarget = retrievedChunks.length ? Math.ceil((target.technical || 0) * 0.7) : 0;
   const questions = [
     {
       id: "intro-1",
       type: "intro",
-      prompt: "Tell me about yourself and your recent work."
+      prompt: "Tell me about yourself and your recent work.",
+      ...questionSource("resume")
     }
   ];
 
   const technicalCount = Math.max(0, target.technical || 0);
   for (let index = 0; index < technicalCount; index += 1) {
     const skill = primarySkills[index % primarySkills.length];
+    const docChunk = index < documentTechnicalTarget ? retrievedChunks[index % retrievedChunks.length] : null;
+    const docQuestion = docChunk ? documentQuestion(docChunk, role, index) : null;
     questions.push({
       id: `technical-${index + 1}`,
       type: "technical",
-      prompt: generated[index] || skillQuestion(skill, role, index)
+      prompt: docQuestion?.prompt || generated[index] || skillQuestion(skill, role, index),
+      ...(
+        docQuestion ||
+        questionSource(generated[index] ? "job_description" : "resume")
+      )
     });
   }
 
@@ -152,7 +211,8 @@ function baseQuestions({ material, role, difficulty, language, parsedResume, job
     questions.push({
       id: `behavioral-${index + 1}`,
       type: "behavioral",
-      prompt: "Tell me about a time you received feedback and improved your work."
+      prompt: "Tell me about a time you received feedback and improved your work.",
+      ...questionSource("general_knowledge")
     });
   }
 
@@ -163,7 +223,8 @@ function baseQuestions({ material, role, difficulty, language, parsedResume, job
       type: "coding",
       prompt: codingTask(skill, role, language, index),
       coding_task: codingTask(skill, role, language, index),
-      language
+      language,
+      ...questionSource("job_description")
     });
   }
 
@@ -231,23 +292,49 @@ export async function startInterview(user, applicationId, payload) {
     throw error;
   }
   const scheduledAt = workflow.interview_scheduled_at || workflow.context?.interviewScheduledAt;
+  const endsAt = resolveInterviewEndsAt(workflow, scheduledAt);
   if (scheduledAt && new Date(scheduledAt).getTime() > Date.now()) {
     const error = new Error("Interview has not reached the scheduled time yet");
     error.statusCode = 403;
     throw error;
   }
+  if (endsAt && new Date(endsAt).getTime() <= Date.now()) {
+    const error = new Error("Interview time has ended.");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const existingInterview = await Interview.findOne({ candidate_id: candidate._id, workflow_id: workflow._id });
+  if (existingInterview?.status === "completed") {
+    const error = new Error("Interview is already completed. Only one attempt is allowed.");
+    error.statusCode = 403;
+    throw error;
+  }
+  if (existingInterview?.status === "in_progress") {
+    assertInterviewOpen(existingInterview);
+    return { interview: existingInterview };
+  }
 
   const difficulty = normalizeDifficulty(workflow.interview_difficulty || workflow.context?.interviewDifficulty || "standard");
-  const preferredLanguage = payload.preferred_language || loadSpec("interview/coding-rules.json").default_language;
+  const preferredLanguage = payload.preferred_language || workflow.context?.preferredLanguage || loadSpec("interview/coding-rules.json").default_language;
   const role = candidate.job_id?.title || workflow.context?.hiringSpec?.role || "Candidate";
+  const retrieval = await retrieveInterviewContext({ workflow, candidate, job: candidate.job_id, difficulty });
   const questions = baseQuestions({
     material: workflow.context?.interview,
     role,
     difficulty,
     language: preferredLanguage,
     parsedResume: workflow.context?.parsedResume || candidate.parsed_resume_json,
-    job: candidate.job_id
+    job: candidate.job_id,
+    retrievedChunks: retrieval.chunks,
+    questionCount: workflow.context?.interviewQuestionCount
   });
+  const questionSource = Object.fromEntries(questions.map((question) => [question.id, {
+    source: question.source,
+    documentName: question.documentName || null,
+    chunkId: question.chunkId || null,
+    similarity: question.similarity || null
+  }]));
 
   const interview = await Interview.findOneAndUpdate(
     { candidate_id: candidate._id, workflow_id: workflow._id },
@@ -257,8 +344,13 @@ export async function startInterview(user, applicationId, payload) {
         job_id: candidate.job_id?._id || workflow.job_id,
         workflow_id: workflow._id,
         scheduled_at: scheduledAt,
+        ends_at: endsAt,
         role,
-        questions
+        questions,
+        questionSource,
+        documentReference: workflow.context?.interviewDocuments || null,
+        retrievedChunks: retrieval.chunks,
+        retrievalMetadata: retrieval.metadata
       },
       $set: {
         difficulty,
@@ -287,6 +379,7 @@ export async function getInterview(user, interviewId) {
 
 export async function questionAudio(user, interviewId, questionId) {
   const { interview } = await getInterview(user, interviewId);
+  assertInterviewOpen(interview);
   const question = interview.questions.find((item) => item.id === questionId);
   if (!question) {
     const error = new Error("Question not found");
@@ -307,6 +400,7 @@ export async function questionAudio(user, interviewId, questionId) {
 
 export async function submitAnswer(user, interviewId, payload, file) {
   const { interview } = await getInterview(user, interviewId);
+  assertInterviewOpen(interview);
   const question = interview.questions.find((item) => item.id === payload.question_id);
   if (!question) {
     const error = new Error("Question not found");
@@ -342,6 +436,7 @@ export async function submitAnswer(user, interviewId, payload, file) {
 
 export async function completeInterview(user, interviewId) {
   const { interview } = await getInterview(user, interviewId);
+  if (interview.status === "completed") return { interview };
   const evaluation = evaluateInterview(interview);
   interview.status = "completed";
   interview.completed_at = new Date();

@@ -1,0 +1,9 @@
+{
+  "collection_name": "agenthire_interview_documents",
+  "chunk_sizes": {
+    "interview_document": 1000
+  },
+  "top_k": 8,
+  "minimum_similarity": 0.75,
+  "embedding_model": "BAAI/bge-small-en-v1.5"
+}

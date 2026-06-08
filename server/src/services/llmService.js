@@ -28,6 +28,12 @@ function parseJsonContent(content) {
   }
 }
 
+function parseGeminiJson(json) {
+  const content = json.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("\n") || "";
+  const cleaned = content.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();
+  return parseJsonContent(cleaned);
+}
+
 export async function generateJsonWithFallback({ system, user, fallback }) {
   const policy = loadSpec("system/llm-policy.json");
   const body = {
@@ -37,6 +43,32 @@ export async function generateJsonWithFallback({ system, user, fallback }) {
     ],
     temperature: policy.temperature
   };
+
+  if (env.GEMINI_API_KEY) {
+    try {
+      const json = await postJson(
+        `https://generativelanguage.googleapis.com/v1beta/models/${env.GEMINI_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`,
+        {},
+        {
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: `${system}\nReturn valid JSON only.\n\n${user}` }]
+            }
+          ],
+          generationConfig: {
+            temperature: policy.temperature,
+            responseMimeType: "application/json"
+          }
+        },
+        policy.timeout_ms
+      );
+      const parsed = parseGeminiJson(json);
+      if (parsed) return { provider: "gemini", data: parsed };
+    } catch {
+      // Fall through to Groq, OpenRouter, or deterministic fallback.
+    }
+  }
 
   if (env.GROQ_API_KEY) {
     try {

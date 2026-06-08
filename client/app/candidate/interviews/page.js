@@ -49,6 +49,7 @@ export default function CandidateInterviewsPage() {
             const info = interviewInfo(item, now);
             const Icon = info.Icon;
             const interviewStarted = Boolean(item.interview);
+            const interviewCompleted = item.interview?.status === "completed";
             const questionCount = item.interview?.questions?.length || 0;
             return (
               <section key={item.application.id} className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
@@ -60,7 +61,7 @@ export default function CandidateInterviewsPage() {
                     </div>
                     <h2 className="mt-2 text-lg font-semibold text-slate-950">{info.label}</h2>
                     <p className="mt-1 text-sm text-slate-600">{info.message}</p>
-                    <p className="mt-3 text-sm font-medium text-slate-800">Time: {formatDateTime(info.scheduledAt)}</p>
+                    <p className="mt-3 text-sm font-medium text-slate-800">Time: {formatDateTime(info.scheduledAt)} - {formatDateTime(info.endsAt)}</p>
                   </div>
 
                   <div className={`flex min-w-56 items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium ${toneClasses(info.tone)}`}>
@@ -93,6 +94,10 @@ export default function CandidateInterviewsPage() {
                       <Link href={`/candidate/interviews/${item.application.id}`}>
                         <Play size={16} /> Start Interview
                       </Link>
+                    ) : interviewCompleted ? (
+                      <>
+                        <Icon size={16} /> Interview completed
+                      </>
                     ) : interviewStarted ? (
                       <>
                         <Play size={16} /> Interview Started

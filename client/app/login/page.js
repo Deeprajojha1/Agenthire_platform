@@ -60,27 +60,55 @@ export default function LoginPage() {
     <AuthRedirect>
       <AuthShell
         title="Welcome back to AgentHire."
-        subtitle="Choose your role, sign in with your credentials, and continue to the dashboard made for that access."
+        subtitle="Sign in with your credentials to access your recruiter or candidate dashboard."
         footerText="New to AgentHire?"
         footerHref="/signup"
         footerLabel="Create account"
       >
         <form method="post" onSubmit={submit}>
-          <h2 className="text-2xl font-semibold text-slate-950">Log in</h2>
-          <p className="mt-2 text-sm text-slate-600">Select your account type before entering credentials.</p>
-          <div className="mt-6 space-y-4">
-            <RoleToggle value={role} onChange={changeRole} />
-            <label className="block text-sm font-medium text-slate-700">
-              Email address
-              <Input className="mt-2" name="email" type="email" placeholder={role === "candidate" ? "you@example.com" : "you@company.com"} required />
-            </label>
-            <label className="block text-sm font-medium text-slate-700">
-              Password
-              <Input className="mt-2" name="password" type="password" placeholder="Enter your password" required />
-            </label>
+          <h2 className="text-2xl font-bold text-white mb-2">Sign in</h2>
+          <p className="text-sm text-slate-400 mb-6">Select your role and enter your credentials</p>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-slate-200 mb-2 block">Account type</label>
+              <RoleToggle value={role} onChange={changeRole} />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-200 mb-2 block">
+                Email address
+              </label>
+              <Input 
+                className="w-full bg-slate-700/50 border border-slate-600/50 text-white placeholder:text-slate-400 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all rounded-lg px-4 py-2" 
+                name="email" 
+                type="email" 
+                placeholder={role === "candidate" ? "you@example.com" : "you@company.com"} 
+                required 
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-200 mb-2 block">
+                Password
+              </label>
+              <Input 
+                className="w-full bg-slate-700/50 border border-slate-600/50 text-white placeholder:text-slate-400 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all rounded-lg px-4 py-2" 
+                name="password" 
+                type="password" 
+                placeholder="Enter your password" 
+                required 
+              />
+            </div>
           </div>
-          {error && <p className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-          <Button className="mt-6 w-full" disabled={loading}>{loading ? <InlineLoader label="Logging in..." /> : "Log In"}</Button>
+          {error && (
+            <div className="mt-6 rounded-lg bg-red-500/10 border border-red-500/30 p-4 text-sm text-red-300">
+              {error}
+            </div>
+          )}
+          <button 
+            disabled={loading}
+            className="mt-6 w-full bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 disabled:from-slate-600 disabled:to-slate-700 text-white font-semibold py-2.5 rounded-lg transition-all shadow-lg hover:shadow-xl disabled:cursor-not-allowed"
+          >
+            {loading ? <InlineLoader label="Signing in..." /> : "Sign in"}
+          </button>
         </form>
       </AuthShell>
     </AuthRedirect>

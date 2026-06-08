@@ -8,6 +8,8 @@ export const env = {
   JWT_SECRET: process.env.JWT_SECRET || "development-secret",
   GROQ_API_KEY: process.env.GROQ_API_KEY || "",
   OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || "",
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
+  GEMINI_MODEL: process.env.GEMINI_MODEL || "gemini-1.5-flash",
   QDRANT_URL: process.env.QDRANT_URL || "http://localhost:6333",
   QDRANT_API_KEY: process.env.QDRANT_API_KEY || "",
   MURF_API_KEY: process.env.MURF_API_KEY || "",

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { FileText, Trash2, UploadCloud } from "lucide-react";
 import WorkflowGraph from "../../../components/WorkflowGraph.js";
 import { Button } from "../../../components/ui/Button.js";
 import { Input } from "../../../components/ui/Input.js";
@@ -13,6 +13,15 @@ function toDateTimeLocalValue(date) {
   return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }
 
+const difficultyDefaults = {
+  starter: 7,
+  standard: 14,
+  advanced: 21,
+  expert: 27
+};
+
+const languages = ["javascript", "typescript", "python", "java", "c++"];
+
 export default function WorkflowsPage() {
   const [workflows, setWorkflows] = useState([]);
   const [active, setActive] = useState(null);
@@ -20,7 +29,11 @@ export default function WorkflowsPage() {
   const [confirmAction, setConfirmAction] = useState(null);
   const [approvalAction, setApprovalAction] = useState(null);
   const [interviewTime, setInterviewTime] = useState("");
+  const [interviewEndTime, setInterviewEndTime] = useState("");
   const [interviewDifficulty, setInterviewDifficulty] = useState("standard");
+  const [interviewQuestionCount, setInterviewQuestionCount] = useState("");
+  const [preferredLanguage, setPreferredLanguage] = useState("javascript");
+  const [interviewDocuments, setInterviewDocuments] = useState([]);
   const [minimumInterviewTime, setMinimumInterviewTime] = useState("");
   const [reviewNote, setReviewNote] = useState("");
   const [reviewing, setReviewing] = useState(false);
@@ -49,14 +62,34 @@ export default function WorkflowsPage() {
     }
   }, [selectWorkflow]);
 
-  async function approve(id, approved, scheduledAt = null, difficulty = "standard") {
+  async function approve(id, approved, scheduledAt = null, endsAt = null, difficulty = "standard") {
     try {
+      const hasDocuments = interviewDocuments.length > 0;
+      const body = hasDocuments ? new FormData() : null;
+      if (hasDocuments) {
+        body.set("workflow_id", id);
+        body.set("approved", String(approved));
+        if (scheduledAt) {
+          body.set("interview_scheduled_at", scheduledAt);
+          body.set("interview_ends_at", endsAt);
+          body.set("interview_difficulty", difficulty);
+          body.set("preferred_language", preferredLanguage);
+          if (interviewQuestionCount) body.set("interview_question_count", interviewQuestionCount);
+        }
+        interviewDocuments.forEach((file) => body.append("interview_documents", file));
+      }
       await api("/workflow/approve", {
         method: "POST",
-        body: JSON.stringify({
+        body: hasDocuments ? body : JSON.stringify({
           workflow_id: id,
           approved,
-          ...(scheduledAt ? { interview_scheduled_at: scheduledAt, interview_difficulty: difficulty } : {})
+          ...(scheduledAt ? {
+            interview_scheduled_at: scheduledAt,
+            interview_ends_at: endsAt,
+            interview_difficulty: difficulty,
+            preferred_language: preferredLanguage,
+            ...(interviewQuestionCount ? { interview_question_count: Number(interviewQuestionCount) } : {})
+          } : {})
         })
       });
       toast.success(approved ? "Checkpoint approved" : "Checkpoint rejected");
@@ -72,20 +105,35 @@ export default function WorkflowsPage() {
     const nextHour = new Date();
     nextHour.setMinutes(0, 0, 0);
     nextHour.setHours(nextHour.getHours() + 1);
+    const nextEnd = new Date(nextHour);
+    nextEnd.setHours(nextEnd.getHours() + 1);
     setInterviewTime(toDateTimeLocalValue(nextHour));
+    setInterviewEndTime(toDateTimeLocalValue(workflow.interview_ends_at || workflow.context?.interviewEndsAt ? new Date(workflow.interview_ends_at || workflow.context?.interviewEndsAt) : nextEnd));
     setInterviewDifficulty(workflow.interview_difficulty || workflow.context?.interviewDifficulty || "standard");
+    setInterviewQuestionCount(workflow.context?.interviewQuestionCount || "");
+    setPreferredLanguage(workflow.context?.preferredLanguage || "javascript");
+    setInterviewDocuments([]);
     setApprovalAction(workflow);
   }
 
   async function submitApproval(event) {
     event.preventDefault();
-    if (!approvalAction || !interviewTime) return;
+    if (!approvalAction || !interviewTime || !interviewEndTime) return;
+    const start = new Date(interviewTime);
+    const end = new Date(interviewEndTime);
+    if (end.getTime() <= start.getTime()) {
+      toast.error("Interview end time must be after start time");
+      return;
+    }
     setApproving(true);
     try {
-      const approved = await approve(approvalAction._id, true, new Date(interviewTime).toISOString(), interviewDifficulty);
+      const approved = await approve(approvalAction._id, true, start.toISOString(), end.toISOString(), interviewDifficulty);
       if (approved) {
         setApprovalAction(null);
         setInterviewTime("");
+        setInterviewEndTime("");
+        setInterviewQuestionCount("");
+        setInterviewDocuments([]);
       }
     } finally {
       setApproving(false);
@@ -244,6 +292,21 @@ export default function WorkflowsPage() {
                       ))}
                     </div>
                   )}
+                  {active.interview.questions?.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      <p className="text-xs font-medium uppercase text-slate-500">Generated Questions And Sources</p>
+                      {active.interview.questions.map((question, index) => (
+                        <div key={question.id} className="rounded-md bg-white p-3">
+                          <p className="text-sm text-slate-800"><span className="font-semibold text-slate-950">Q{index + 1}.</span> {question.prompt}</p>
+                          <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                            <span className="rounded-full bg-slate-100 px-2 py-1 font-medium capitalize text-slate-700">{question.source?.replace("_", " ") || "general knowledge"}</span>
+                            {question.documentName && <span className="rounded-full bg-teal-50 px-2 py-1 font-medium text-teal-800">{question.documentName}</span>}
+                            {typeof question.similarity === "number" && <span className="rounded-full bg-emerald-50 px-2 py-1 font-medium text-emerald-700">Similarity {question.similarity.toFixed(2)}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {active.current_state === "recruiter_review" && active.status === "waiting_approval" && (
                     <div className="mt-4 rounded-md border border-teal-200 bg-white p-4">
                       <h4 className="font-semibold text-slate-950">Verify Result And Continue</h4>
@@ -292,33 +355,102 @@ export default function WorkflowsPage() {
 
       {approvalAction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 px-4">
-          <form onSubmit={submitApproval} className="w-full max-w-md rounded-md border border-slate-200 bg-white p-5 shadow-xl">
+          <form onSubmit={submitApproval} className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-md border border-slate-200 bg-white p-5 shadow-xl">
             <h2 className="text-lg font-semibold text-slate-950">Schedule interview</h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">
               Set the interview time for {approvalAction.candidate_id?.name || "this candidate"}. The candidate email will include this timing.
             </p>
-            <label htmlFor="interview-time" className="mt-4 block text-sm font-medium text-slate-700">Interview time</label>
-            <Input
-              id="interview-time"
-              type="datetime-local"
-              value={interviewTime}
-              min={minimumInterviewTime}
-              onChange={(event) => setInterviewTime(event.target.value)}
-              required
-              className="mt-2"
-            />
-            <label htmlFor="interview-difficulty" className="mt-4 block text-sm font-medium text-slate-700">Interview difficulty</label>
-            <select
-              id="interview-difficulty"
-              value={interviewDifficulty}
-              onChange={(event) => setInterviewDifficulty(event.target.value)}
-              required
-              className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-teal-700 focus:ring-2 focus:ring-teal-100"
-            >
-              <option value="starter">Starter</option>
-              <option value="standard">Standard</option>
-              <option value="advanced">Advanced</option>
-            </select>
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <label htmlFor="interview-time" className="block text-sm font-medium text-slate-700">
+                Interview start time
+                <Input
+                  id="interview-time"
+                  type="datetime-local"
+                  value={interviewTime}
+                  min={minimumInterviewTime}
+                  onChange={(event) => setInterviewTime(event.target.value)}
+                  required
+                  className="mt-2"
+                />
+              </label>
+              <label htmlFor="interview-end-time" className="block text-sm font-medium text-slate-700">
+                Interview end time
+                <Input
+                  id="interview-end-time"
+                  type="datetime-local"
+                  value={interviewEndTime}
+                  min={interviewTime || minimumInterviewTime}
+                  onChange={(event) => setInterviewEndTime(event.target.value)}
+                  required
+                  className="mt-2"
+                />
+              </label>
+              <label htmlFor="interview-difficulty" className="block text-sm font-medium text-slate-700">
+                Difficulty
+                <select
+                  id="interview-difficulty"
+                  value={interviewDifficulty}
+                  onChange={(event) => setInterviewDifficulty(event.target.value)}
+                  required
+                  className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-teal-700 focus:ring-2 focus:ring-teal-100"
+                >
+                  <option value="starter">Starter</option>
+                  <option value="standard">Standard</option>
+                  <option value="advanced">Advanced</option>
+                  <option value="expert">Expert</option>
+                </select>
+              </label>
+              <label htmlFor="question-count" className="block text-sm font-medium text-slate-700">
+                Question count
+                <Input
+                  id="question-count"
+                  type="number"
+                  min="1"
+                  max="50"
+                  value={interviewQuestionCount}
+                  placeholder={`Default ${difficultyDefaults[interviewDifficulty]}`}
+                  onChange={(event) => setInterviewQuestionCount(event.target.value)}
+                  className="mt-2"
+                />
+              </label>
+              <label htmlFor="preferred-language" className="block text-sm font-medium text-slate-700">
+                Preferred language
+                <select
+                  id="preferred-language"
+                  value={preferredLanguage}
+                  onChange={(event) => setPreferredLanguage(event.target.value)}
+                  className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-teal-700 focus:ring-2 focus:ring-teal-100"
+                >
+                  {languages.map((language) => <option key={language} value={language}>{language}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className="mt-5 rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
+              <label htmlFor="interview-documents" className="flex cursor-pointer items-center gap-3 text-sm font-medium text-slate-700">
+                <span className="flex h-10 w-10 items-center justify-center rounded-md bg-white text-teal-700 shadow-sm"><UploadCloud size={18} /></span>
+                <span>
+                  Interview documents
+                  <span className="block text-xs font-normal text-slate-500">Optional PDF, DOCX, DOC, or TXT files for RAG-based questions.</span>
+                </span>
+              </label>
+              <input
+                id="interview-documents"
+                type="file"
+                accept=".pdf,.doc,.docx,.txt"
+                multiple
+                className="sr-only"
+                onChange={(event) => setInterviewDocuments(Array.from(event.target.files || []))}
+              />
+              {interviewDocuments.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {interviewDocuments.map((file) => (
+                    <div key={`${file.name}-${file.size}`} className="flex items-center gap-2 rounded-md bg-white px-3 py-2 text-sm text-slate-700">
+                      <FileText size={15} className="text-teal-700" /> {file.name}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="mt-5 flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setApprovalAction(null)} disabled={approving}>Cancel</Button>
               <Button type="submit" disabled={approving}>

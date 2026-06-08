@@ -25,6 +25,13 @@ const starterCode = {
   python: `def solution():\n    # Write your answer here\n    pass\n`
 };
 
+function formatDuration(ms) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
 export default function CandidateInterviewQuestionsPage() {
   const params = useParams();
   const router = useRouter();
@@ -42,6 +49,7 @@ export default function CandidateInterviewQuestionsPage() {
   const [audioBlob, setAudioBlob] = useState(null);
   const [recording, setRecording] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [autoCompleting, setAutoCompleting] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
@@ -49,7 +57,7 @@ export default function CandidateInterviewQuestionsPage() {
 
   useEffect(() => {
     setNow(Date.now());
-    const timer = window.setInterval(() => setNow(Date.now()), 30000);
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
 
@@ -181,6 +189,10 @@ export default function CandidateInterviewQuestionsPage() {
   const Icon = info?.Icon;
   const activeQuestion = interview?.questions?.[currentIndex];
   const fixedDifficulty = item?.interview?.difficulty || item?.workflow?.interview_difficulty || item?.workflow?.context?.interviewDifficulty || info?.difficulty || "standard";
+  const interviewEndsAt = interview?.ends_at || info?.endsAt || null;
+  const remainingMs = interviewEndsAt ? new Date(interviewEndsAt).getTime() - now : null;
+  const timerActive = interview?.status === "in_progress" && typeof remainingMs === "number";
+  const timeEnded = timerActive && remainingMs <= 0;
 
   useEffect(() => {
     if (!item?.interview || interview) return;
@@ -190,6 +202,19 @@ export default function CandidateInterviewQuestionsPage() {
     setCode(starterCode[nextLanguage] || "");
     setCurrentIndex(Math.min(item.interview.answers?.length || 0, Math.max((item.interview.questions?.length || 1) - 1, 0)));
   }, [interview, item]);
+
+  useEffect(() => {
+    if (!timeEnded || autoCompleting || !interview?._id) return;
+    setAutoCompleting(true);
+    setStatusMessage("Interview time ended. Completing your attempt...");
+    api(`/candidate/interviews/session/${interview._id}/complete`, { method: "POST" })
+      .then((result) => {
+        setInterview(result.interview);
+        setStatusMessage("Interview completed. Your answers and evaluation summary were saved.");
+      })
+      .catch((err) => setStatusMessage(err.message))
+      .finally(() => setAutoCompleting(false));
+  }, [autoCompleting, interview?._id, timeEnded]);
 
   return (
     <>
@@ -224,7 +249,7 @@ export default function CandidateInterviewQuestionsPage() {
               <div>
                 <div className="flex items-center gap-2 text-sm font-medium text-teal-700">
                   <CalendarClock size={16} />
-                  Time: {formatDateTime(info.scheduledAt)}
+                  Time: {formatDateTime(info.scheduledAt)} - {formatDateTime(info.endsAt)}
                 </div>
                 <h2 className="mt-2 text-lg font-semibold text-slate-950">{info.label}</h2>
                 <p className="mt-1 text-sm text-slate-600">{info.message}</p>
@@ -255,6 +280,12 @@ export default function CandidateInterviewQuestionsPage() {
                           {fixedDifficulty}
                         </div>
                       </div>
+                      <div className="text-sm font-medium text-slate-700 md:col-span-2">
+                        Interview window
+                        <div className="mt-2 flex h-10 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-800">
+                          {formatDateTime(info.scheduledAt)} - {formatDateTime(info.endsAt)}
+                        </div>
+                      </div>
                       <label className="text-sm font-medium text-slate-700">
                         Preferred language
                         <select value={language} onChange={(event) => changeLanguage(event.target.value)} className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-teal-700 focus:ring-2 focus:ring-teal-100">
@@ -268,7 +299,7 @@ export default function CandidateInterviewQuestionsPage() {
                       <Button type="button" variant={micReady ? "primary" : "outline"} onClick={() => testDevice("microphone")}>Microphone Test</Button>
                       <Button type="button" variant={cameraReady ? "primary" : "outline"} onClick={() => testDevice("camera")}>Camera Test</Button>
                       <Button type="button" onClick={startInterviewSession} disabled={busy || !micReady || !cameraReady}>
-                        {busy ? "Starting..." : "Ready and Start"}
+                        {busy ? "Starting..." : "Ready and Start Attempt"}
                       </Button>
                     </div>
                   </div>
@@ -302,23 +333,49 @@ export default function CandidateInterviewQuestionsPage() {
 
               {interview && activeQuestion && interview.status !== "completed" && (
                 <div className="space-y-5">
-                  {Array.isArray(interview.questions) && interview.questions.length > 0 && (
-                    <div>
-                      <h2 className="text-lg font-semibold text-slate-950">AI Asked Questions</h2>
-                      <div className="mt-3 grid gap-2 md:grid-cols-2">
-                        {interview.questions.map((question, index) => (
-                          <button
-                            key={question.id}
-                            type="button"
-                            onClick={() => setCurrentIndex(index)}
-                            className={`rounded-md border p-3 text-left text-sm transition ${index === currentIndex ? "border-teal-300 bg-teal-50 text-teal-900" : "border-slate-200 bg-slate-50 text-slate-700 hover:border-teal-200 hover:bg-teal-50/60"}`}
-                          >
-                            <span className="font-semibold text-slate-950">Q{index + 1}.</span> {question.prompt}
-                          </button>
-                        ))}
+                  <div>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <h2 className="text-lg font-semibold text-slate-950">AI Asked Question</h2>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="rounded-full bg-teal-50 px-3 py-1 text-sm font-semibold text-teal-700">
+                          {currentIndex + 1} / {interview.questions.length}
+                        </span>
+                        {timerActive && (
+                          <span className={`rounded-full px-3 py-1 text-sm font-semibold ${remainingMs <= 60000 ? "bg-red-50 text-red-700" : "bg-slate-100 text-slate-700"}`}>
+                            Time left: {formatDuration(remainingMs)}
+                          </span>
+                        )}
                       </div>
                     </div>
-                  )}
+                    <div className="mt-3 grid grid-cols-[auto_1fr_auto] items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-9 px-3"
+                        onClick={() => setCurrentIndex((value) => Math.max(0, value - 1))}
+                        disabled={currentIndex === 0 || busy}
+                      >
+                        Previous
+                      </Button>
+                      <div className="flex min-w-0 justify-center gap-1">
+                        {interview.questions.map((question, index) => (
+                          <span
+                            key={question.id}
+                            className={`h-2 w-8 rounded-full ${index === currentIndex ? "bg-teal-700" : index < currentIndex ? "bg-emerald-400" : "bg-slate-200"}`}
+                          />
+                        ))}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-9 px-3"
+                        onClick={() => setCurrentIndex((value) => Math.min(interview.questions.length - 1, value + 1))}
+                        disabled={currentIndex >= interview.questions.length - 1 || busy}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
 
                   <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
                     <p className="text-xs font-medium uppercase text-slate-500">Question {currentIndex + 1} of {interview.questions.length}</p>
@@ -328,7 +385,7 @@ export default function CandidateInterviewQuestionsPage() {
                       <Button type="button" variant="outline" onClick={() => loadQuestionAudio(activeQuestion)} disabled={busy}>
                         <Volume2 size={16} /> Play Question
                       </Button>
-                      {!recording && <Button type="button" variant="outline" onClick={startRecording}><Mic size={16} /> Record Answer</Button>}
+                      {!recording && <Button type="button" variant="outline" onClick={startRecording} disabled={autoCompleting || timeEnded}><Mic size={16} /> Record Answer</Button>}
                       {recording && <Button type="button" variant="danger" onClick={stopRecording}><Square size={16} /> Stop Recording</Button>}
                       {audioBlob && <span className="inline-flex h-10 items-center rounded-md bg-emerald-50 px-3 text-sm font-medium text-emerald-700">Recording ready</span>}
                     </div>
@@ -372,8 +429,8 @@ export default function CandidateInterviewQuestionsPage() {
                     </div>
                   )}
 
-                  <Button type="button" onClick={submitCurrentAnswer} disabled={busy}>
-                    <Send size={16} /> {currentIndex < interview.questions.length - 1 ? "Submit and Next" : "Submit and Complete"}
+                  <Button type="button" onClick={submitCurrentAnswer} disabled={busy || autoCompleting || timeEnded}>
+                    <Send size={16} /> {autoCompleting ? "Completing..." : currentIndex < interview.questions.length - 1 ? "Submit and Next" : "Submit and Complete"}
                   </Button>
                 </div>
               )}
@@ -383,21 +440,6 @@ export default function CandidateInterviewQuestionsPage() {
                   <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
                     Interview completed. Overall score: {interview.overall_score ?? "Pending"} - Recommendation: {interview.recommendation || "Pending recruiter review"}
                   </div>
-                  {Array.isArray(interview.questions) && interview.questions.length > 0 && (
-                    <div>
-                      <h2 className="text-lg font-semibold text-slate-950">AI Asked Questions</h2>
-                      <div className="mt-3 space-y-2">
-                        {interview.questions.map((question, index) => (
-                          <div key={question.id} className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-                            <p><span className="font-semibold text-slate-950">Q{index + 1}.</span> {question.prompt}</p>
-                            {interview.answers?.find((answer) => answer.question_id === question.id)?.clean_transcript && (
-                              <p className="mt-2 text-slate-600">Answer: {interview.answers.find((answer) => answer.question_id === question.id).clean_transcript}</p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
 

@@ -22,3 +22,20 @@ export const resumeUpload = multer({
     return cb(null, true);
   }
 });
+
+export const interviewDocumentUpload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024, files: 5 },
+  fileFilter: (req, file, cb) => {
+    const allowed = new Set([
+      "application/pdf",
+      "text/plain",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/msword"
+    ]);
+    if (!allowed.has(file.mimetype)) {
+      return cb(new Error("Only PDF, DOCX, DOC, or TXT interview documents are allowed"));
+    }
+    return cb(null, true);
+  }
+});

@@ -8,6 +8,10 @@ export async function upsertDocument(doc) {
 export async function searchDocuments(query, policy) {
   const terms = query.toLowerCase().split(/\W+/).filter(Boolean);
   return documents
+    .filter((doc) => {
+      const conditions = policy.filter?.must || [];
+      return conditions.every((condition) => String(doc[condition.key] || "") === String(condition.match?.value || ""));
+    })
     .map((doc) => {
       const text = JSON.stringify(doc).toLowerCase();
       const hits = terms.filter((term) => text.includes(term)).length;

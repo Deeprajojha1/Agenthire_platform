@@ -30,9 +30,13 @@ async function ensureCollection(client, collectionName) {
 }
 
 export async function upsertResumeEmbedding(document) {
+  return upsertRagDocument(document);
+}
+
+export async function upsertRagDocument(document) {
   const policy = document.policy;
   const collectionName = policy.collection_name;
-  const chunks = chunkText(document.text, policy.chunk_sizes[document.type] || policy.chunk_sizes.resume);
+  const chunks = chunkText(document.text, policy.chunk_sizes[document.type] || policy.chunk_sizes.resume || 1000);
   try {
     const client = createQdrantClient();
     await ensureCollection(client, collectionName);
@@ -67,6 +71,7 @@ export async function searchRag(query, policy) {
       vector: await embedText(query, policy.embedding_model),
       limit: policy.top_k,
       score_threshold: policy.minimum_similarity,
+      ...(policy.filter ? { filter: policy.filter } : {}),
       with_payload: true
     });
     return results.map((result) => ({ ...result.payload, score: result.score }));

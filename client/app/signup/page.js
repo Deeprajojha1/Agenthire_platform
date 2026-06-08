@@ -61,31 +61,67 @@ export default function SignupPage() {
     <AuthRedirect>
       <AuthShell
         title="Create your AgentHire account."
-        subtitle="Pick recruiter or candidate access, add your credentials, and start on the right dashboard."
+        subtitle="Sign up as a recruiter or candidate to start using our AI-powered hiring platform."
         footerText="Already have an account?"
         footerHref="/login"
-        footerLabel="Log in"
+        footerLabel="Sign in"
       >
         <form method="post" onSubmit={submit}>
-          <h2 className="text-2xl font-semibold text-slate-950">Create account</h2>
-          <p className="mt-2 text-sm text-slate-600">Select the role you want before creating the account.</p>
-          <div className="mt-6 space-y-4">
-            <RoleToggle value={role} onChange={changeRole} />
-            <label className="block text-sm font-medium text-slate-700">
-              Full name
-              <Input className="mt-2" name="name" placeholder="Your name" required />
-            </label>
-            <label className="block text-sm font-medium text-slate-700">
-              Email address
-              <Input className="mt-2" name="email" type="email" placeholder={role === "candidate" ? "you@example.com" : "you@company.com"} required />
-            </label>
-            <label className="block text-sm font-medium text-slate-700">
-              Password
-              <Input className="mt-2" name="password" type="password" placeholder="Minimum 8 characters" minLength={8} required />
-            </label>
+          <h2 className="text-2xl font-bold text-white mb-2">Create account</h2>
+          <p className="text-sm text-slate-400 mb-6">Select your role and set up your account</p>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-slate-200 mb-2 block">Account type</label>
+              <RoleToggle value={role} onChange={changeRole} />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-200 mb-2 block">
+                Full name
+              </label>
+              <Input 
+                className="w-full bg-slate-700/50 border border-slate-600/50 text-white placeholder:text-slate-400 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all rounded-lg px-4 py-2" 
+                name="name" 
+                placeholder="Your name" 
+                required 
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-200 mb-2 block">
+                Email address
+              </label>
+              <Input 
+                className="w-full bg-slate-700/50 border border-slate-600/50 text-white placeholder:text-slate-400 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all rounded-lg px-4 py-2" 
+                name="email" 
+                type="email" 
+                placeholder={role === "candidate" ? "you@example.com" : "you@company.com"} 
+                required 
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-200 mb-2 block">
+                Password
+              </label>
+              <Input 
+                className="w-full bg-slate-700/50 border border-slate-600/50 text-white placeholder:text-slate-400 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all rounded-lg px-4 py-2" 
+                name="password" 
+                type="password" 
+                placeholder="Minimum 8 characters" 
+                minLength={8} 
+                required 
+              />
+            </div>
           </div>
-          {error && <p className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-          <Button className="mt-6 w-full" disabled={loading}>{loading ? <InlineLoader label="Creating account..." /> : "Create Account"}</Button>
+          {error && (
+            <div className="mt-6 rounded-lg bg-red-500/10 border border-red-500/30 p-4 text-sm text-red-300">
+              {error}
+            </div>
+          )}
+          <button 
+            disabled={loading}
+            className="mt-6 w-full bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 disabled:from-slate-600 disabled:to-slate-700 text-white font-semibold py-2.5 rounded-lg transition-all shadow-lg hover:shadow-xl disabled:cursor-not-allowed"
+          >
+            {loading ? <InlineLoader label="Creating account..." /> : "Create account"}
+          </button>
         </form>
       </AuthShell>
     </AuthRedirect>

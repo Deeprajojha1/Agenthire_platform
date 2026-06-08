@@ -52,6 +52,7 @@ function interviewEmail(input, templates) {
     role: input.hiringSpec.role,
     interviewDate: formatDate(input.interviewScheduledAt),
     interviewTime: formatTime(input.interviewScheduledAt),
+    interviewEndTime: formatTime(input.interviewEndsAt),
     interviewMode: templates.mode || "Online",
     interviewLink
   };
@@ -69,7 +70,7 @@ function interviewEmail(input, templates) {
       <p>We are pleased to inform you that your application for the <strong>${values.role}</strong> position has been shortlisted for the next stage of our hiring process.</p>
       <h2 style="font-size:16px;margin-top:20px;">Interview Details</h2>
       <p><strong>Date:</strong> ${values.interviewDate}</p>
-      <p><strong>Time:</strong> ${values.interviewTime}</p>
+      <p><strong>Time:</strong> ${values.interviewTime} - ${values.interviewEndTime}</p>
       <p><strong>Mode:</strong> ${values.interviewMode}</p>
       <p>During this round, we may discuss your technical skills, projects, problem-solving approach, and experience relevant to the role.</p>
       <ul><li>Join the interview on time.</li><li>Have a stable internet connection.</li><li>Keep your resume and project details ready.</li></ul>

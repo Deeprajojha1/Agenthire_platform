@@ -18,6 +18,12 @@
       "technical": 15,
       "behavioral": 2,
       "coding": 3
+    },
+    "expert": {
+      "intro": 1,
+      "technical": 20,
+      "behavioral": 2,
+      "coding": 4
     }
   }
 }

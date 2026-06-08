@@ -4,6 +4,7 @@ import WorkflowLog from "../models/WorkflowLog.js";
 import Candidate from "../models/Candidate.js";
 import Interview from "../models/Interview.js";
 import { publishCandidateEvent } from "./candidate/eventService.js";
+import { indexInterviewDocuments } from "./interview/knowledgeBaseService.js";
 import { loadSpec, loadWorkflowSpec } from "../utils/specLoader.js";
 import { runHiringWorkflow } from "../workflows/hiringWorkflow.js";
 
@@ -68,12 +69,29 @@ export async function approveWorkflow(workflowId, approved, options = {}) {
     error.statusCode = 400;
     throw error;
   }
+  const interviewEndsAt = new Date(options.interview_ends_at);
+  if (Number.isNaN(interviewEndsAt.getTime()) || interviewEndsAt.getTime() <= interviewScheduledAt.getTime()) {
+    const error = new Error("Valid interview end time is required and must be after the start time");
+    error.statusCode = 400;
+    throw error;
+  }
   workflow.interview_scheduled_at = interviewScheduledAt;
+  workflow.interview_ends_at = interviewEndsAt;
   workflow.interview_difficulty = options.interview_difficulty || "standard";
+  const uploadedDocuments = await indexInterviewDocuments({
+    files: options.files || [],
+    workflow,
+    recruiterId: options.recruiter_id
+  });
+  const existingDocuments = workflow.context?.interviewDocuments || [];
   workflow.context = {
     ...workflow.context,
     interviewScheduledAt: interviewScheduledAt.toISOString(),
-    interviewDifficulty: workflow.interview_difficulty
+    interviewEndsAt: interviewEndsAt.toISOString(),
+    interviewDifficulty: workflow.interview_difficulty,
+    interviewQuestionCount: options.interview_question_count ? Number(options.interview_question_count) : undefined,
+    preferredLanguage: options.preferred_language || workflow.context?.preferredLanguage || "javascript",
+    interviewDocuments: [...existingDocuments, ...uploadedDocuments]
   };
   const node = workflow.node_states.find((item) => item.name === "human_approval");
   if (node) node.status = "success";
@@ -83,7 +101,10 @@ export async function approveWorkflow(workflowId, approved, options = {}) {
     candidateId: candidate._id,
     workflowId: workflow._id,
     event: "application_approved",
-    payload: { interview_scheduled_at: interviewScheduledAt.toISOString() }
+    payload: {
+      interview_scheduled_at: interviewScheduledAt.toISOString(),
+      interview_ends_at: interviewEndsAt.toISOString()
+    }
   });
   return runHiringWorkflow(workflow._id, { approved: true });
 }

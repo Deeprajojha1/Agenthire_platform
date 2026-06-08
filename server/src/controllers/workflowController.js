@@ -12,7 +12,12 @@ export async function retryWorkflow(req, res) {
 export async function approveWorkflow(req, res) {
   jsonResponse(res, await workflowService.approveWorkflow(req.body.workflow_id, req.body.approved, {
     interview_scheduled_at: req.body.interview_scheduled_at,
-    interview_difficulty: req.body.interview_difficulty
+    interview_ends_at: req.body.interview_ends_at,
+    interview_difficulty: req.body.interview_difficulty,
+    interview_question_count: req.body.interview_question_count,
+    preferred_language: req.body.preferred_language,
+    files: req.files,
+    recruiter_id: req.user?._id
   }));
 }
 
