@@ -1,29 +1,54 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import AuthRedirect from "../../components/AuthRedirect.js";
 import AuthShell from "../../components/AuthShell.js";
+import RoleToggle from "../../components/RoleToggle.js";
 import { Button } from "../../components/ui/Button.js";
 import { Input } from "../../components/ui/Input.js";
 import { InlineLoader } from "../../components/ui/PageLoader.js";
+import { getAuthRoleFallback, rememberAuthRole } from "../../lib/authRole.js";
 import { useAuthStore } from "../../store/authStore.js";
 
 export default function SignupPage() {
   const router = useRouter();
   const signup = useAuthStore((state) => state.signup);
+  const candidateSignup = useAuthStore((state) => state.candidateSignup);
+  const [role, setRole] = useState("recruiter");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setRole(getAuthRoleFallback());
+  }, []);
+
+  function changeRole(nextRole) {
+    rememberAuthRole(nextRole);
+    setRole(nextRole);
+  }
 
   async function submit(event) {
     event.preventDefault();
     setLoading(true);
+    setError("");
     const form = new FormData(event.currentTarget);
     try {
-      await signup({ name: form.get("name"), email: form.get("email"), password: form.get("password") });
-      toast.success("Candidate account created");
-      router.push("/candidate/dashboard");
+      const payload = {
+        name: String(form.get("name") || "").trim(),
+        email: String(form.get("email") || "").trim().toLowerCase(),
+        password: String(form.get("password") || "")
+      };
+      if (role === "candidate") {
+        await candidateSignup(payload);
+        toast.success("Candidate account created");
+        router.replace("/candidate/dashboard");
+        return;
+      }
+      await signup(payload);
+      toast.success("Recruiter account created");
+      router.replace("/dashboard");
     } catch (err) {
       setError(err.message);
       toast.error(err.message);
@@ -35,23 +60,24 @@ export default function SignupPage() {
   return (
     <AuthRedirect>
       <AuthShell
-        title="Create your candidate account."
-        subtitle="Track applications, workflow progress, match scores, and notifications from one candidate portal."
+        title="Create your AgentHire account."
+        subtitle="Pick recruiter or candidate access, add your credentials, and start on the right dashboard."
         footerText="Already have an account?"
         footerHref="/login"
         footerLabel="Log in"
       >
         <form method="post" onSubmit={submit}>
           <h2 className="text-2xl font-semibold text-slate-950">Create account</h2>
-          <p className="mt-2 text-sm text-slate-600">Your account will be created with candidate access.</p>
+          <p className="mt-2 text-sm text-slate-600">Select the role you want before creating the account.</p>
           <div className="mt-6 space-y-4">
+            <RoleToggle value={role} onChange={changeRole} />
             <label className="block text-sm font-medium text-slate-700">
               Full name
               <Input className="mt-2" name="name" placeholder="Your name" required />
             </label>
             <label className="block text-sm font-medium text-slate-700">
               Email address
-              <Input className="mt-2" name="email" type="email" placeholder="you@company.com" required />
+              <Input className="mt-2" name="email" type="email" placeholder={role === "candidate" ? "you@example.com" : "you@company.com"} required />
             </label>
             <label className="block text-sm font-medium text-slate-700">
               Password

@@ -1,82 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
-import AuthShell from "../../../components/AuthShell.js";
-import { Button } from "../../../components/ui/Button.js";
-import { Input } from "../../../components/ui/Input.js";
-import { InlineLoader } from "../../../components/ui/PageLoader.js";
-import { resolveSession } from "../../../lib/session.js";
-import { useAuthStore } from "../../../store/authStore.js";
+import { useEffect } from "react";
+import { PageLoader } from "../../../components/ui/PageLoader.js";
+import { rememberAuthRole } from "../../../lib/authRole.js";
 
 export default function CandidateSignupPage() {
   const router = useRouter();
-  const candidateSignup = useAuthStore((state) => state.candidateSignup);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    let mounted = true;
-    async function redirectIfAuthenticated() {
-      const session = await resolveSession();
-      if (mounted && session) router.replace(session.redirectTo);
-    }
-    redirectIfAuthenticated();
-    return () => {
-      mounted = false;
-    };
+    rememberAuthRole("candidate");
+    router.replace("/signup");
   }, [router]);
 
-  async function submit(event) {
-    event.preventDefault();
-    setLoading(true);
-    setError("");
-    const form = new FormData(event.currentTarget);
-    try {
-      await candidateSignup({
-        name: String(form.get("name") || "").trim(),
-        email: String(form.get("email") || "").trim().toLowerCase(),
-        password: String(form.get("password") || "")
-      });
-      toast.success("Candidate account created");
-      router.replace("/candidate/dashboard");
-    } catch (err) {
-      setError(err.message);
-      toast.error(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <AuthShell
-      title="Create your candidate portal."
-      subtitle="Your account is candidate-only and tied to applications using the same email address."
-      footerText="Already registered?"
-      footerHref="/candidate/login"
-      footerLabel="Log in"
-    >
-      <form method="post" onSubmit={submit}>
-        <h2 className="text-2xl font-semibold text-slate-950">Candidate signup</h2>
-        <p className="mt-2 text-sm text-slate-600">No recruiter or admin role selection is available here.</p>
-        <div className="mt-6 space-y-4">
-          <label className="block text-sm font-medium text-slate-700">
-            Full name
-            <Input className="mt-2" name="name" placeholder="Your name" required />
-          </label>
-          <label className="block text-sm font-medium text-slate-700">
-            Email address
-            <Input className="mt-2" name="email" type="email" placeholder="you@example.com" required />
-          </label>
-          <label className="block text-sm font-medium text-slate-700">
-            Password
-            <Input className="mt-2" name="password" type="password" placeholder="Minimum 8 characters" minLength={8} required />
-          </label>
-        </div>
-        {error && <p className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-        <Button className="mt-6 w-full" disabled={loading}>{loading ? <InlineLoader label="Creating account..." /> : "Create Account"}</Button>
-      </form>
-    </AuthShell>
-  );
+  return <PageLoader label="Opening signup..." className="min-h-screen" />;
 }

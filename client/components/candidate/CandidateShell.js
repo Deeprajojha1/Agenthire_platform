@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Bell, BriefcaseBusiness, CalendarClock, LayoutDashboard, LogOut, Menu, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { api, clearToken, getToken } from "../../lib/api.js";
+import { rememberAuthRole } from "../../lib/authRole.js";
 import { Button } from "../ui/Button.js";
 import { PageLoader } from "../ui/PageLoader.js";
 
@@ -38,6 +39,13 @@ function NavLinks({ pathname, navigate }) {
   );
 }
 
+const candidateLoginPath = "/login";
+
+function goToCandidateLogin(router) {
+  rememberAuthRole("candidate");
+  router.replace(candidateLoginPath);
+}
+
 export default function CandidateShell({ children }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -52,7 +60,7 @@ export default function CandidateShell({ children }) {
     function handleSessionExpired() {
       candidateSessionVerified = false;
       clearToken();
-      router.replace("/candidate/login");
+      goToCandidateLogin(router);
     }
 
     window.addEventListener("agenthire:session-expired", handleSessionExpired);
@@ -71,7 +79,7 @@ export default function CandidateShell({ children }) {
 
     async function verify() {
       if (!getToken()) {
-        router.replace("/candidate/login");
+        goToCandidateLogin(router);
         return;
       }
       try {
@@ -85,7 +93,7 @@ export default function CandidateShell({ children }) {
         window.clearTimeout(timeout);
         clearToken();
         if (mounted) setSessionError(error.message || "Candidate session expired.");
-        router.replace("/candidate/login");
+        goToCandidateLogin(router);
       }
     }
     verify();
@@ -104,7 +112,7 @@ export default function CandidateShell({ children }) {
     candidateSessionVerified = false;
     clearToken();
     toast.success("Logged out");
-    router.replace("/candidate/login");
+    goToCandidateLogin(router);
   }
 
   if (isAuthPage) return children;
@@ -117,7 +125,7 @@ export default function CandidateShell({ children }) {
           {sessionError && (
             <div className="mt-4">
               <p className="text-sm text-red-700" style={{ color: "#b91c1c", fontSize: 14 }}>{sessionError}</p>
-              <Button className="mt-3" onClick={() => router.replace("/candidate/login")}>Go to login</Button>
+              <Button className="mt-3" onClick={() => goToCandidateLogin(router)}>Go to login</Button>
             </div>
           )}
         </div>

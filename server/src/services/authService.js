@@ -20,7 +20,7 @@ export async function signup(payload) {
     throw error;
   }
   const password = await bcrypt.hash(payload.password, 12);
-  const user = await User.create({ name: payload.name.trim(), email, password, role: "candidate" });
+  const user = await User.create({ name: payload.name.trim(), email, password, role: "recruiter" });
   return { token: signToken(user), user: { id: user._id, name: user.name, email: user.email, role: user.role } };
 }
 

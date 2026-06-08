@@ -6,15 +6,25 @@ export const useAuthStore = create((set) => ({
   loading: false,
   async login(payload) {
     set({ loading: true });
-    const data = await api("/auth/login", { method: "POST", body: JSON.stringify(payload) });
-    setToken(data.token);
-    set({ user: data.user, loading: false });
+    try {
+      const data = await api("/auth/login", { method: "POST", body: JSON.stringify(payload) });
+      setToken(data.token);
+      set({ user: data.user, loading: false });
+    } catch (error) {
+      set({ loading: false });
+      throw error;
+    }
   },
   async signup(payload) {
     set({ loading: true });
-    const data = await api("/auth/signup", { method: "POST", body: JSON.stringify(payload) });
-    setToken(data.token);
-    set({ user: data.user, loading: false });
+    try {
+      const data = await api("/auth/signup", { method: "POST", body: JSON.stringify(payload) });
+      setToken(data.token);
+      set({ user: data.user, loading: false });
+    } catch (error) {
+      set({ loading: false });
+      throw error;
+    }
   },
   async candidateLogin(payload) {
     set({ loading: true });

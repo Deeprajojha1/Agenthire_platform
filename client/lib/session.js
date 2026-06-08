@@ -1,11 +1,18 @@
 import { API_URL, clearToken, getToken } from "./api.js";
 
 async function rawSessionRequest(path, token) {
-  const response = await fetch(`${API_URL}${path}`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  const json = await response.json().catch(() => null);
-  return { response, json };
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 4000);
+  try {
+    const response = await fetch(`${API_URL}${path}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal
+    });
+    const json = await response.json().catch(() => null);
+    return { response, json };
+  } finally {
+    window.clearTimeout(timeout);
+  }
 }
 
 export async function resolveSession() {
