@@ -89,7 +89,7 @@ export async function approveWorkflow(workflowId, approved, options = {}) {
     interviewScheduledAt: interviewScheduledAt.toISOString(),
     interviewEndsAt: interviewEndsAt.toISOString(),
     interviewDifficulty: workflow.interview_difficulty,
-    interviewQuestionCount: options.interview_question_count ? Number(options.interview_question_count) : undefined,
+    interviewTechnicalQuestionCount: options.interview_question_count ? Number(options.interview_question_count) : undefined,
     preferredLanguage: options.preferred_language || workflow.context?.preferredLanguage || "javascript",
     interviewDocuments: [...existingDocuments, ...uploadedDocuments]
   };

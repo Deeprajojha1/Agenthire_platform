@@ -1,8 +1,10 @@
 import { unlink } from "fs/promises";
 import Candidate from "../models/Candidate.js";
+import Workflow from "../models/Workflow.js";
 import { publishCandidateEvent } from "./candidate/eventService.js";
 import { getJob } from "./jobService.js";
 import { startWorkflowForCandidate } from "./workflowService.js";
+import { loadWorkflowSpec } from "../utils/specLoader.js";
 
 function normalizeEmail(email) {
   return email.trim().toLowerCase();
@@ -29,6 +31,77 @@ function assertApplicationOpen(job) {
   const error = new Error("The application deadline for this job has passed.");
   error.statusCode = 400;
   throw error;
+}
+
+function resetNode(node, status = "pending") {
+  node.status = status;
+  node.attempts = status === "pending" ? 0 : node.attempts || 0;
+  node.error = undefined;
+  node.output = status === "pending" ? undefined : node.output;
+  node.started_at = undefined;
+  node.completed_at = status === "pending" ? undefined : new Date();
+}
+
+function ensureWorkflowNodes(workflow) {
+  const order = workflow.execution_order?.length ? workflow.execution_order : loadWorkflowSpec().workflow;
+  const existing = new Map((workflow.node_states || []).map((node) => [node.name, node]));
+  workflow.execution_order = order;
+  workflow.node_states = order.map((name) => existing.get(name) || ({ name, status: "pending", attempts: 0 }));
+  return order;
+}
+
+async function syncWorkflowForRecruiterStatus(candidate, nextStatus) {
+  let workflow = await Workflow.findOne({ candidate_id: candidate._id });
+  if (!workflow && nextStatus !== "rejected") {
+    workflow = await Workflow.create({
+      candidate_id: candidate._id,
+      job_id: candidate.job_id,
+      current_state: "human_approval",
+      status: "waiting_approval",
+      approval_status: "pending",
+      execution_order: loadWorkflowSpec().workflow,
+      node_states: loadWorkflowSpec().workflow.map((name) => ({ name, status: name === "human_approval" ? "waiting_approval" : "pending", attempts: 0 }))
+    });
+    return workflow;
+  }
+  if (!workflow) return null;
+
+  const order = ensureWorkflowNodes(workflow);
+  const humanApprovalIndex = order.indexOf("human_approval");
+
+  if (nextStatus === "rejected") {
+    workflow.current_state = "human_approval";
+    workflow.status = "completed";
+    workflow.approval_status = "rejected";
+    const humanNode = workflow.node_states.find((node) => node.name === "human_approval");
+    if (humanNode) resetNode(humanNode, "success");
+  } else {
+    workflow.current_state = "human_approval";
+    workflow.status = "waiting_approval";
+    workflow.approval_status = "pending";
+    workflow.interview_scheduled_at = undefined;
+    workflow.interview_ends_at = undefined;
+    workflow.context = {
+      ...workflow.context,
+      recruiterOverride: {
+        status: nextStatus,
+        reopenedAt: new Date().toISOString()
+      },
+      interviewScheduledAt: undefined,
+      interviewEndsAt: undefined
+    };
+    workflow.node_states.forEach((node) => {
+      const index = order.indexOf(node.name);
+      if (node.name === "human_approval") {
+        resetNode(node, "waiting_approval");
+      } else if (humanApprovalIndex >= 0 && index > humanApprovalIndex) {
+        resetNode(node, "pending");
+      }
+    });
+  }
+
+  await workflow.save();
+  return workflow;
 }
 
 export async function checkApplication(payload) {
@@ -92,4 +165,43 @@ export async function getCandidate(id) {
     throw error;
   }
   return candidate;
+}
+
+export async function updateCandidate(id, payload) {
+  const candidate = await Candidate.findById(id);
+  if (!candidate) {
+    const error = new Error("Candidate not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const updates = { ...payload };
+  if (updates.email) updates.email = normalizeEmail(updates.email);
+  if (updates.status === "reject") updates.status = "rejected";
+  const shouldSyncWorkflow = Object.hasOwn(updates, "status");
+
+  Object.assign(candidate, updates);
+
+  try {
+    await candidate.save();
+  } catch (error) {
+    if (error.code === 11000) {
+      const duplicateError = new Error("Another application already uses this email for the same job.");
+      duplicateError.statusCode = 409;
+      throw duplicateError;
+    }
+    throw error;
+  }
+
+  if (shouldSyncWorkflow) {
+    const workflow = await syncWorkflowForRecruiterStatus(candidate, candidate.status);
+    await publishCandidateEvent({
+      candidateId: candidate._id,
+      workflowId: workflow?._id,
+      event: candidate.status === "rejected" ? "application_rejected" : "application_approved",
+      payload: { status: candidate.status, recruiter_control: true }
+    });
+  }
+
+  return candidate.populate("job_id");
 }

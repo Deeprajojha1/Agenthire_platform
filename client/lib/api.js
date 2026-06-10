@@ -40,15 +40,27 @@ function notifySessionExpired() {
   window.dispatchEvent(new CustomEvent("agenthire:session-expired"));
 }
 
+function errorMessage(error, fallback = "Request failed. Please try again.") {
+  if (typeof error === "string") return error;
+  if (error?.message) return error.message;
+  if (error?.type === "error") return "Network request failed. Please check that the server is running.";
+  return fallback;
+}
+
 export async function api(path, options = {}) {
   const token = getToken();
   const headers = { ...(options.headers || {}) };
   if (!(options.body instanceof FormData)) headers["Content-Type"] = "application/json";
   if (token) headers.Authorization = `Bearer ${token}`;
-  const response = await fetch(`${API_URL}${path}`, { ...options, headers });
+  let response;
+  try {
+    response = await fetch(`${API_URL}${path}`, { ...options, headers });
+  } catch (error) {
+    throw new Error(errorMessage(error, "Network request failed. Please check that the server is running."));
+  }
   const json = await response.json().catch(() => ({ success: false, error: { message: "Request failed" } }));
   if (!response.ok || !json.success) {
-    const message = json.error?.message || "Request failed";
+    const message = errorMessage(json.error?.message || json.error, "Request failed");
     if (isSessionError(response, message)) {
       clearToken();
       notifySessionExpired();

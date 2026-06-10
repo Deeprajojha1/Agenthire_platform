@@ -14,13 +14,31 @@ function toDateTimeLocalValue(date) {
 }
 
 const difficultyDefaults = {
-  starter: 7,
-  standard: 14,
-  advanced: 21,
-  expert: 27
+  starter: 5,
+  standard: 10,
+  advanced: 15,
+  expert: 20
+};
+
+const difficultyFixedCounts = {
+  starter: 2,
+  standard: 4,
+  advanced: 6,
+  expert: 7
 };
 
 const languages = ["javascript", "typescript", "python", "java", "c++"];
+
+function formatDateTime(value) {
+  if (!value) return "Not set";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Not set";
+  return date.toLocaleString();
+}
+
+function prettyState(value) {
+  return String(value || "pending").replaceAll("_", " ");
+}
 
 export default function WorkflowsPage() {
   const [workflows, setWorkflows] = useState([]);
@@ -110,7 +128,7 @@ export default function WorkflowsPage() {
     setInterviewTime(toDateTimeLocalValue(nextHour));
     setInterviewEndTime(toDateTimeLocalValue(workflow.interview_ends_at || workflow.context?.interviewEndsAt ? new Date(workflow.interview_ends_at || workflow.context?.interviewEndsAt) : nextEnd));
     setInterviewDifficulty(workflow.interview_difficulty || workflow.context?.interviewDifficulty || "standard");
-    setInterviewQuestionCount(workflow.context?.interviewQuestionCount || "");
+    setInterviewQuestionCount(workflow.context?.interviewTechnicalQuestionCount || workflow.context?.interviewQuestionCount || "");
     setPreferredLanguage(workflow.context?.preferredLanguage || "javascript");
     setInterviewDocuments([]);
     setApprovalAction(workflow);
@@ -201,6 +219,21 @@ export default function WorkflowsPage() {
     return () => clearInterval(timer);
   }, []);
 
+  const activeNodes = active?.node_states || [];
+  const completedNodes = activeNodes.filter((node) => node.status === "success").length;
+  const progressPercent = activeNodes.length ? Math.round((completedNodes / activeNodes.length) * 100) : 0;
+  const activeNode = activeNodes.find((node) => node.name === active?.current_state) || activeNodes.find((node) => node.status === "running" || node.status === "waiting_approval");
+  const scheduledAt = active?.interview_scheduled_at || active?.context?.interviewScheduledAt;
+  const endsAt = active?.interview_ends_at || active?.context?.interviewEndsAt;
+  const technicalQuestions = active?.context?.interviewTechnicalQuestionCount || active?.context?.interviewQuestionCount;
+  const candidateStatus = active?.candidate_id?.status;
+  const humanApprovalNode = activeNodes.find((node) => node.name === "human_approval");
+  const canVerifyShortlist = active?.current_state === "human_approval" && (
+    active?.status === "waiting_approval" ||
+    humanApprovalNode?.status === "waiting_approval" ||
+    ["shortlist", "submitted", "hold"].includes(candidateStatus)
+  );
+
   return (
     <section>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -239,28 +272,78 @@ export default function WorkflowsPage() {
           )}
         </div>
         <div className="space-y-4">
-          {active && <WorkflowGraph workflow={active} nodeStateSpec={nodeStateSpec} />}
           {active && (
             <div className="rounded-md border border-slate-200 bg-white p-4">
+              <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-start">
+                <div>
+                  <p className="text-xs font-medium uppercase text-slate-500">Selected Workflow</p>
+                  <h2 className="mt-1 text-lg font-semibold text-slate-950">{active.candidate_id?.name || "Candidate"}</h2>
+                  <p className="mt-1 text-sm text-slate-600">{active.job_id?.title || "No job linked"}</p>
+                </div>
+                <div className="flex flex-wrap gap-2 lg:justify-end">
+                  <span className="rounded-md bg-slate-100 px-3 py-1 text-sm font-medium capitalize text-slate-800">{prettyState(active.status)}</span>
+                  <span className="rounded-md bg-teal-50 px-3 py-1 text-sm font-medium capitalize text-teal-800">{prettyState(active.approval_status)}</span>
+                  <span className="rounded-md bg-emerald-50 px-3 py-1 text-sm font-medium capitalize text-emerald-800">{prettyState(candidateStatus)}</span>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-4">
+                <div className="rounded-md bg-slate-50 p-3">
+                  <p className="text-xs font-medium uppercase text-slate-500">Current Step</p>
+                  <p className="mt-1 font-semibold capitalize text-slate-950">{prettyState(active.current_state)}</p>
+                </div>
+                <div className="rounded-md bg-slate-50 p-3">
+                  <p className="text-xs font-medium uppercase text-slate-500">Progress</p>
+                  <p className="mt-1 font-semibold text-slate-950">{completedNodes}/{activeNodes.length || 0} steps</p>
+                </div>
+                <div className="rounded-md bg-slate-50 p-3">
+                  <p className="text-xs font-medium uppercase text-slate-500">Difficulty</p>
+                  <p className="mt-1 font-semibold capitalize text-slate-950">{active.interview_difficulty || active.context?.interviewDifficulty || "Standard"}</p>
+                </div>
+                <div className="rounded-md bg-slate-50 p-3">
+                  <p className="text-xs font-medium uppercase text-slate-500">Retries</p>
+                  <p className="mt-1 font-semibold text-slate-950">{active.retry_count || 0}</p>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full rounded-full bg-teal-700 transition-all" style={{ width: `${progressPercent}%` }} />
+                </div>
+                <p className="mt-2 text-sm text-slate-600">
+                  {activeNode ? `${prettyState(activeNode.name)} is ${prettyState(activeNode.status)}.` : "Workflow is ready."}
+                </p>
+              </div>
+
+              <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 text-sm md:grid-cols-3">
+                <div>
+                  <p className="text-xs font-medium uppercase text-slate-500">Interview Start</p>
+                  <p className="mt-1 text-slate-800">{formatDateTime(scheduledAt)}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium uppercase text-slate-500">Interview End</p>
+                  <p className="mt-1 text-slate-800">{formatDateTime(endsAt)}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium uppercase text-slate-500">Technical Questions</p>
+                  <p className="mt-1 text-slate-800">{technicalQuestions || "Policy default"}</p>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <WorkflowGraph workflow={active} nodeStateSpec={nodeStateSpec} />
+              </div>
+
               {active.current_state === "recruiter_review" && active.status === "waiting_approval" && (
-                <div className="mb-4 rounded-md border border-teal-200 bg-teal-50 p-4">
+                <div className="mt-4 rounded-md border border-teal-200 bg-teal-50 p-4">
                   <h2 className="text-sm font-semibold text-teal-950">Recruiter Review Required</h2>
                   <p className="mt-1 text-sm text-teal-800">Verify the interview result, then choose the next action to complete the workflow.</p>
                 </div>
               )}
-              <div className="flex flex-wrap gap-2">
-                {active.status === "waiting_approval" && active.current_state === "human_approval" && <Button onClick={() => openApprovalModal(active)}>Approve checkpoint</Button>}
-                {active.status === "waiting_approval" && active.current_state === "human_approval" && <Button variant="outline" onClick={() => approve(active._id, false)}>Reject checkpoint</Button>}
+              <div className="mt-4 flex flex-wrap gap-2">
+                {canVerifyShortlist && <Button onClick={() => openApprovalModal(active)}>Verify shortlist</Button>}
+                {canVerifyShortlist && <Button variant="outline" onClick={() => approve(active._id, false)}>Reject application</Button>}
                 {active.status === "failed" && <Button variant="outline" onClick={() => retry(active._id)}>Retry failed node</Button>}
-              </div>
-
-              <div className="mt-4 grid gap-2 text-sm">
-                {active.node_states?.map((node) => (
-                  <div key={node.name} className="flex justify-between gap-3 rounded bg-slate-50 p-2">
-                    <span>{node.name}</span>
-                    <span>{node.status} - attempts {node.attempts}</span>
-                  </div>
-                ))}
               </div>
 
               {active.interview && (
@@ -297,7 +380,19 @@ export default function WorkflowsPage() {
                       <p className="text-xs font-medium uppercase text-slate-500">Generated Questions And Sources</p>
                       {active.interview.questions.map((question, index) => (
                         <div key={question.id} className="rounded-md bg-white p-3">
-                          <p className="text-sm text-slate-800"><span className="font-semibold text-slate-950">Q{index + 1}.</span> {question.prompt}</p>
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <p className="text-sm text-slate-800"><span className="font-semibold text-slate-950">Q{index + 1}.</span> {question.prompt}</p>
+                            {active.interview.evaluation?.questionScores?.find((item) => item.question_id === question.id)?.score != null && (
+                              <span className="shrink-0 rounded-md bg-teal-50 px-2 py-1 text-xs font-semibold text-teal-800">
+                                Score {active.interview.evaluation.questionScores.find((item) => item.question_id === question.id).score}/100
+                              </span>
+                            )}
+                          </div>
+                          {active.interview.evaluation?.questionScores?.find((item) => item.question_id === question.id)?.feedback && (
+                            <p className="mt-2 rounded-md bg-slate-50 p-2 text-xs text-slate-600">
+                              {active.interview.evaluation.questionScores.find((item) => item.question_id === question.id).feedback}
+                            </p>
+                          )}
                           <div className="mt-2 flex flex-wrap gap-2 text-xs">
                             <span className="rounded-full bg-slate-100 px-2 py-1 font-medium capitalize text-slate-700">{question.source?.replace("_", " ") || "general knowledge"}</span>
                             {question.documentName && <span className="rounded-full bg-teal-50 px-2 py-1 font-medium text-teal-800">{question.documentName}</span>}
@@ -401,7 +496,7 @@ export default function WorkflowsPage() {
                 </select>
               </label>
               <label htmlFor="question-count" className="block text-sm font-medium text-slate-700">
-                Question count
+                Technical questions
                 <Input
                   id="question-count"
                   type="number"
@@ -412,6 +507,9 @@ export default function WorkflowsPage() {
                   onChange={(event) => setInterviewQuestionCount(event.target.value)}
                   className="mt-2"
                 />
+                <span className="mt-1 block text-xs font-normal text-slate-500">
+                  Total will be {(Number(interviewQuestionCount) || difficultyDefaults[interviewDifficulty]) + difficultyFixedCounts[interviewDifficulty]} with policy-based intro, behavioral, and coding questions.
+                </span>
               </label>
               <label htmlFor="preferred-language" className="block text-sm font-medium text-slate-700">
                 Preferred language

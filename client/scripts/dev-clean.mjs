@@ -45,8 +45,8 @@ async function killPid(pid) {
 }
 
 async function cleanNextCache() {
-  await rm(join(process.cwd(), ".next"), { recursive: true, force: true });
-  console.log("[dev] Cleared client .next cache.");
+  await rm(join(process.cwd(), ".next-dev"), { recursive: true, force: true });
+  console.log("[dev] Cleared client .next-dev cache.");
 }
 
 async function main() {

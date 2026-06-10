@@ -106,6 +106,7 @@ function persistedContext(context) {
     interviewScheduledAt: context.interviewScheduledAt,
     interviewEndsAt: context.interviewEndsAt,
     interviewDifficulty: context.interviewDifficulty,
+    interviewTechnicalQuestionCount: context.interviewTechnicalQuestionCount,
     interviewQuestionCount: context.interviewQuestionCount,
     preferredLanguage: context.preferredLanguage,
     interviewDocuments: context.interviewDocuments,

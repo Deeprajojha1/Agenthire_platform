@@ -2,6 +2,7 @@ import Candidate from "../../models/Candidate.js";
 import Interview from "../../models/Interview.js";
 import Workflow from "../../models/Workflow.js";
 import { runHiringWorkflow } from "../../workflows/hiringWorkflow.js";
+import { generateJsonWithFallback } from "../llmService.js";
 import { loadSpec } from "../../utils/specLoader.js";
 import { retrieveInterviewContext } from "./knowledgeBaseService.js";
 import { persistRecording, synthesizeQuestionAudio, transcribeRecording } from "./voiceService.js";
@@ -165,14 +166,11 @@ function codingTask(skill, role, language, index) {
   ][index % 3];
 }
 
-function questionPlan(difficulty, overrideCount) {
+function questionPlan(difficulty, technicalOverrideCount) {
   const rules = loadSpec("interview/difficulty-rules.json");
   const target = { ...(rules.levels[difficulty] || rules.levels[rules.default]) };
-  const desiredTotal = Number(overrideCount || 0);
-  if (desiredTotal > 0) {
-    const fixedCount = (target.intro || 0) + (target.behavioral || 0) + (target.coding || 0);
-    target.technical = Math.max(0, desiredTotal - fixedCount);
-  }
+  const desiredTechnicalCount = Number(technicalOverrideCount || 0);
+  if (desiredTechnicalCount > 0) target.technical = desiredTechnicalCount;
   return target;
 }
 
@@ -231,26 +229,168 @@ function baseQuestions({ material, role, difficulty, language, parsedResume, job
   return questions;
 }
 
-function evaluateInterview(interview) {
+function clampScore(value) {
+  return Math.min(100, Math.max(0, Math.round(Number(value) || 0)));
+}
+
+function answerText(answer = {}) {
+  return String(answer.clean_transcript || answer.manual_text || answer.raw_transcript || "").trim();
+}
+
+function tokenize(value) {
+  const ignored = new Set(["what", "when", "where", "which", "would", "could", "should", "about", "with", "your", "this", "that", "then", "than", "from", "into", "have", "will", "and", "the", "for", "you"]);
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9+#.\s-]/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length > 2 && !ignored.has(token));
+}
+
+function overlapScore(question, answer, code = "") {
+  const expected = new Set(tokenize(question));
+  const actual = new Set([...tokenize(answer), ...tokenize(code)]);
+  if (!expected.size || !actual.size) return 0;
+  const hits = [...expected].filter((token) => actual.has(token)).length;
+  return Math.min(100, Math.round((hits / Math.min(expected.size, 12)) * 100));
+}
+
+function deterministicQuestionScore(question, answer) {
+  const text = answerText(answer);
+  const code = String(answer?.code || "").trim();
+  const hasAnswer = Boolean(text || code);
+  if (!hasAnswer) {
+    return {
+      question_id: question.id,
+      score: 0,
+      feedback: "No answer was submitted.",
+      evidence: [],
+      risk: "missing_answer"
+    };
+  }
+
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+  const depthScore = Math.min(100, wordCount * 4);
+  const relevanceScore = overlapScore(question.prompt, text, code);
+  const confidenceScore = answer?.confidence_score ? Number(answer.confidence_score) * 100 : 70;
+  const codingScore = question.type === "coding" ? (code.length > 40 ? 85 : code ? 60 : 20) : 70;
+  const weighted = question.type === "coding"
+    ? (depthScore * 0.2) + (relevanceScore * 0.25) + (codingScore * 0.45) + (confidenceScore * 0.1)
+    : (depthScore * 0.45) + (relevanceScore * 0.35) + (confidenceScore * 0.2);
+
+  return {
+    question_id: question.id,
+    score: clampScore(weighted),
+    feedback: "Scored with deterministic fallback using answer depth, relevance, confidence, and coding evidence.",
+    evidence: [text.slice(0, 160), code ? code.slice(0, 120) : ""].filter(Boolean),
+    risk: wordCount < 12 && !code ? "thin_answer" : ""
+  };
+}
+
+function deterministicEvaluation(interview, rubric) {
+  const answersByQuestion = new Map((interview.answers || []).map((answer) => [answer.question_id, answer]));
+  const questionScores = (interview.questions || []).map((question) => deterministicQuestionScore(question, answersByQuestion.get(question.id)));
+  const average = (items) => items.length ? items.reduce((sum, item) => sum + item.score, 0) / items.length : 0;
+  const byType = (type) => questionScores.filter((item) => interview.questions.find((question) => question.id === item.question_id)?.type === type);
+  const technicalItems = [...byType("technical"), ...byType("coding")];
+  const codingItems = byType("coding");
+  const overallScore = clampScore(average(questionScores));
+  return {
+    dimensions: {
+      communication: clampScore(average(questionScores.map((item) => ({ score: Math.min(100, item.score + 5) })))),
+      technical_skill: clampScore(average(technicalItems.length ? technicalItems : questionScores)),
+      problem_solving: clampScore(average(technicalItems.length ? technicalItems : questionScores)),
+      coding_ability: clampScore(codingItems.length ? average(codingItems) : average(questionScores) * 0.7),
+      confidence: clampScore(average(questionScores)),
+      role_fit: clampScore((average(technicalItems.length ? technicalItems : questionScores) * 0.7) + (average(byType("behavioral")) * 0.3 || 0))
+    },
+    overallScore,
+    recommendation: recommendationForScore(overallScore),
+    questionScores,
+    strengths: questionScores.filter((item) => item.score >= 75).slice(0, 3).map((item) => `${item.question_id}: ${item.feedback}`),
+    weaknesses: questionScores.filter((item) => item.score < 55).slice(0, 3).map((item) => `${item.question_id}: ${item.feedback}`),
+    riskAreas: questionScores.filter((item) => item.risk).map((item) => `${item.question_id}: ${item.risk}`),
+    provider: "deterministic-fallback",
+    policy: {
+      dimensions: rubric.dimensions,
+      scoring: "question_answer_quality"
+    }
+  };
+}
+
+function recommendationForScore(score) {
+  if (score >= 80) return "Strong Hire";
+  if (score >= 65) return "Hire";
+  if (score >= 50) return "Hold";
+  return "Reject";
+}
+
+async function evaluateInterview(interview) {
   const rubric = loadSpec("interview/evaluation-rubric.json");
-  const answerCount = interview.answers.length;
-  const questionCount = interview.questions.length || 1;
-  const completion = Math.round((answerCount / questionCount) * 100);
-  const codingAnswered = interview.answers.some((answer) => answer.code);
-  const baseScore = Math.min(100, Math.max(35, completion));
-  const dimensions = Object.fromEntries(rubric.dimensions.map((dimension) => {
-    const codingPenalty = dimension === "coding_ability" && !codingAnswered ? 20 : 0;
-    return [dimension, Math.max(0, baseScore - codingPenalty)];
-  }));
-  const overallScore = Math.round(Object.values(dimensions).reduce((sum, value) => sum + value, 0) / rubric.dimensions.length);
-  const recommendation = overallScore >= 80 ? "Strong Hire" : overallScore >= 65 ? "Hire" : overallScore >= 50 ? "Hold" : "Reject";
+  const fallback = deterministicEvaluation(interview, rubric);
+  const compactQuestions = (interview.questions || []).map((question) => {
+    const answer = (interview.answers || []).find((item) => item.question_id === question.id);
+    return {
+      id: question.id,
+      type: question.type,
+      prompt: question.prompt,
+      expected_intent: question.coding_task || question.prompt,
+      answer: answerText(answer),
+      code: answer?.code || "",
+      transcript_confidence: answer?.confidence_score ?? null
+    };
+  });
+  const { provider, data } = await generateJsonWithFallback({
+    system: [
+      "You are a strict technical interview evaluator.",
+      "Score only from the candidate answer and code evidence.",
+      "Do not reward blank, generic, unrelated, or copied prompt text.",
+      "Use 0-100 scores. Missing answer must be 0.",
+      `Dimensions: ${rubric.dimensions.join(", ")}.`
+    ].join(" "),
+    user: JSON.stringify({
+      role: interview.role,
+      difficulty: interview.difficulty,
+      scoring_policy: {
+        strong_hire: "overallScore >= 80",
+        hire: "overallScore >= 65",
+        hold: "overallScore >= 50",
+        reject: "overallScore < 50"
+      },
+      questions: compactQuestions,
+      required_json_shape: {
+        dimensions: Object.fromEntries(rubric.dimensions.map((dimension) => [dimension, "number 0-100"])),
+        overallScore: "number 0-100",
+        recommendation: "Strong Hire | Hire | Hold | Reject",
+        questionScores: [{ question_id: "string", score: "number 0-100", feedback: "short string", evidence: ["short quotes or code facts"], risk: "short string or empty" }],
+        strengths: ["short strings"],
+        weaknesses: ["short strings"],
+        riskAreas: ["short strings"]
+      }
+    }),
+    fallback
+  });
+  const dimensions = Object.fromEntries(rubric.dimensions.map((dimension) => [dimension, clampScore(data.dimensions?.[dimension] ?? fallback.dimensions[dimension])]));
+  const overallScore = clampScore(data.overallScore ?? Object.values(dimensions).reduce((sum, value) => sum + value, 0) / rubric.dimensions.length);
+  const recommendation = ["Strong Hire", "Hire", "Hold", "Reject"].includes(data.recommendation) ? data.recommendation : recommendationForScore(overallScore);
   return {
     dimensions,
     overallScore,
     recommendation,
-    strengths: answerCount ? ["Completed interview responses were captured."] : [],
-    weaknesses: answerCount < questionCount ? ["Some interview questions were not answered."] : [],
-    riskAreas: codingAnswered ? [] : ["Coding ability needs recruiter review."]
+    questionScores: Array.isArray(data.questionScores) ? data.questionScores.map((item) => ({ ...item, score: clampScore(item.score) })) : fallback.questionScores,
+    strengths: Array.isArray(data.strengths) ? data.strengths : fallback.strengths,
+    weaknesses: Array.isArray(data.weaknesses) ? data.weaknesses : fallback.weaknesses,
+    riskAreas: Array.isArray(data.riskAreas) ? data.riskAreas : fallback.riskAreas,
+    provider,
+    policy: {
+      dimensions: rubric.dimensions,
+      score_max: rubric.score_max,
+      recommendation_thresholds: {
+        strong_hire: 80,
+        hire: 65,
+        hold: 50,
+        reject_below: 50
+      }
+    }
   };
 }
 
@@ -327,7 +467,7 @@ export async function startInterview(user, applicationId, payload) {
     parsedResume: workflow.context?.parsedResume || candidate.parsed_resume_json,
     job: candidate.job_id,
     retrievedChunks: retrieval.chunks,
-    questionCount: workflow.context?.interviewQuestionCount
+    questionCount: workflow.context?.interviewTechnicalQuestionCount || workflow.context?.interviewQuestionCount
   });
   const questionSource = Object.fromEntries(questions.map((question) => [question.id, {
     source: question.source,
@@ -437,7 +577,7 @@ export async function submitAnswer(user, interviewId, payload, file) {
 export async function completeInterview(user, interviewId) {
   const { interview } = await getInterview(user, interviewId);
   if (interview.status === "completed") return { interview };
-  const evaluation = evaluateInterview(interview);
+  const evaluation = await evaluateInterview(interview);
   interview.status = "completed";
   interview.completed_at = new Date();
   interview.evaluation = evaluation;

@@ -16,3 +16,7 @@ export async function listCandidates(req, res) {
 export async function getCandidate(req, res) {
   jsonResponse(res, await candidateService.getCandidate(req.params.id));
 }
+
+export async function updateCandidate(req, res) {
+  jsonResponse(res, await candidateService.updateCandidate(req.params.id, req.body));
+}

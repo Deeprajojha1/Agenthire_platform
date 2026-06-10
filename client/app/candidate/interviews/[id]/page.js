@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { ArrowLeft, CalendarClock, CheckCircle2, Mic, Send, Square, Volume2 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -9,15 +8,6 @@ import { PageLoader } from "../../../../components/ui/PageLoader.js";
 import { Textarea } from "../../../../components/ui/Textarea.js";
 import { api } from "../../../../lib/api.js";
 import { formatDateTime, interviewInfo, toneClasses } from "../interviewHelpers.js";
-
-const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-80 items-center justify-center rounded-md border border-slate-200 bg-slate-950 text-sm text-slate-300">
-      Loading code editor...
-    </div>
-  )
-});
 
 const starterCode = {
   javascript: `function solution() {\n  // Write your answer here\n}\n`,
@@ -409,21 +399,11 @@ export default function CandidateInterviewQuestionsPage() {
                             <option value="python">Python</option>
                           </select>
                         </div>
-                        <MonacoEditor
-                          height="420px"
-                          language={language}
-                          theme="vs-dark"
+                        <Textarea
                           value={code}
-                          onChange={(value) => setCode(value || "")}
-                          options={{
-                            minimap: { enabled: false },
-                            fontSize: 14,
-                            lineNumbers: "on",
-                            scrollBeyondLastLine: false,
-                            automaticLayout: true,
-                            tabSize: 2,
-                            wordWrap: "on"
-                          }}
+                          onChange={(event) => setCode(event.target.value)}
+                          spellCheck={false}
+                          className="min-h-[420px] rounded-none border-0 bg-slate-950 font-mono text-sm leading-6 text-slate-100 outline-none placeholder:text-slate-500 focus:ring-0"
                         />
                       </div>
                     </div>
