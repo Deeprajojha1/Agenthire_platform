@@ -801,6 +801,9 @@ video {
 .min-h-\[18rem\] {
   min-height: 18rem;
 }
+.min-h-36 {
+  min-height: 9rem;
+}
 .w-0\.5 {
   width: 0.125rem;
 }
@@ -933,6 +936,9 @@ video {
 }
 .items-center {
   align-items: center;
+}
+.items-stretch {
+  align-items: stretch;
 }
 .justify-start {
   justify-content: flex-start;

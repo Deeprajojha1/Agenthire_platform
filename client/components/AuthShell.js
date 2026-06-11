@@ -39,11 +39,11 @@ export default function AuthShell({ title, subtitle, children, footerText, foote
             {subtitle}
           </p>
 
-          <div className="grid gap-3 sm:grid-cols-3 md:gap-4">
+          <div className="grid items-stretch gap-3 sm:grid-cols-3 md:gap-4">
             {points.map(([Icon, label, desc]) => (
-              <div key={label} className="group relative">
+              <div key={label} className="group relative h-full">
                 <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-teal-500/10 to-blue-500/10 opacity-0 blur transition-opacity group-hover:opacity-100" />
-                <div className="relative rounded-lg border border-slate-700/50 bg-gradient-to-b from-slate-800/50 to-slate-900/30 p-3 backdrop-blur-sm transition-colors hover:border-teal-500/30 sm:p-4">
+                <div className="relative flex h-full min-h-36 flex-col rounded-lg border border-slate-700/50 bg-gradient-to-b from-slate-800/50 to-slate-900/30 p-3 backdrop-blur-sm transition-colors hover:border-teal-500/30 sm:p-4">
                   <Icon className="mb-3 text-teal-400" size={20} />
                   <p className="mb-1 text-sm font-semibold text-white">{label}</p>
                   <p className="text-xs text-slate-400">{desc}</p>

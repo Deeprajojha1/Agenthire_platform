@@ -63,8 +63,8 @@ export default function CandidateDashboardPage() {
   }, [search]);
 
   return (
-    <>
-      <div className="rounded-xl border border-teal-100 bg-gradient-to-r from-white/95 via-teal-50/95 to-indigo-50/95 p-4 shadow-sm backdrop-blur sm:sticky sm:top-20 sm:z-30 sm:p-5">
+    <section className="flex h-[calc(100vh-5.5rem)] flex-col overflow-hidden md:h-[calc(100vh-8rem)]">
+      <div className="shrink-0 rounded-xl border border-teal-100 bg-gradient-to-r from-white/95 via-teal-50/95 to-indigo-50/95 p-4 shadow-sm backdrop-blur sm:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-sm font-semibold text-teal-700">Candidate Portal</p>
@@ -99,20 +99,20 @@ export default function CandidateDashboardPage() {
         </div>
       </div>
 
-      {!data && !error && <PageLoader label="Loading applications..." className="min-h-80" />}
+      {!data && !error && <PageLoader label="Loading applications..." className="min-h-0 flex-1" />}
       {error && <p className="mt-6 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
       {data && (
-        <div className="mt-6">
-          <section className="rounded-xl border border-teal-100 bg-white/85 p-3 shadow-sm ring-1 ring-white/70 sm:p-4">
-            <div className="mb-4 flex flex-col gap-3 border-b border-slate-100 pb-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-4 min-h-0 flex-1 sm:mt-6">
+          <section className="flex h-full min-h-0 flex-col rounded-xl border border-teal-100 bg-white/85 p-3 shadow-sm ring-1 ring-white/70 sm:p-4">
+            <div className="mb-4 shrink-0 flex flex-col gap-3 border-b border-slate-100 pb-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm font-semibold text-teal-700">Application List</p>
                 <h2 className="mt-1 text-lg font-semibold text-slate-950">My Applications</h2>
               </div>
               <span className="self-start rounded-full bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-700 shadow-sm sm:self-auto">{data.applications.length} application{data.applications.length === 1 ? "" : "s"}</span>
             </div>
-            <div className="max-h-[65vh] min-h-[18rem] overflow-y-auto pr-1 sm:max-h-[calc(100vh-22rem)] sm:min-h-[22rem] sm:pr-2">
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1 sm:pr-2">
               <div className="grid gap-4">
           {data.applications.length === 0 && (
             <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
@@ -154,6 +154,6 @@ export default function CandidateDashboardPage() {
 
         </div>
       )}
-    </>
+    </section>
   );
 }
