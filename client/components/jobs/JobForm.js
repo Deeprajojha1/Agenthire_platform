@@ -34,9 +34,9 @@ export function JobForm({ initialJob = {}, loading = false, mode = "create", onS
   }
 
   return (
-    <form method="post" onSubmit={submit} className="max-w-3xl">
-      <h1 className="text-2xl font-semibold">{mode === "edit" ? "Edit Job" : "Create Job"}</h1>
-      <div className="mt-6 space-y-4 rounded-md border border-slate-200 bg-white p-5">
+    <form method="post" onSubmit={submit} className="w-full max-w-3xl">
+      <h1 className="text-xl font-semibold text-slate-950 sm:text-2xl">{mode === "edit" ? "Edit Job" : "Create Job"}</h1>
+      <div className="mt-4 space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:mt-6 sm:p-5">
         <div>
           <label htmlFor="title" className="mb-2 block text-sm font-medium text-slate-700">Job title</label>
           <Input id="title" name="title" defaultValue={initialJob.title || ""} placeholder="Example: Full Stack Developer Intern" required />
@@ -66,7 +66,7 @@ export function JobForm({ initialJob = {}, loading = false, mode = "create", onS
             {skills.map((skill) => <span key={skill} className="rounded bg-slate-100 px-2 py-1 text-xs">{skill}</span>)}
           </div>
         )}
-        <Button disabled={loading}>{loading ? <InlineLoader label={mode === "edit" ? "Saving job..." : "Creating job..."} /> : mode === "edit" ? "Save job" : "Create workflow-ready job"}</Button>
+        <Button className="w-full sm:w-auto" disabled={loading}>{loading ? <InlineLoader label={mode === "edit" ? "Saving job..." : "Creating job..."} /> : mode === "edit" ? "Save job" : "Create workflow-ready job"}</Button>
       </div>
     </form>
   );

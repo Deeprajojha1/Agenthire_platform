@@ -2,13 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Eye, EyeOff, Mail } from "lucide-react";
 import { toast } from "sonner";
 import AuthRedirect from "../../components/AuthRedirect.js";
 import AuthShell from "../../components/AuthShell.js";
 import RoleToggle from "../../components/RoleToggle.js";
 import { Button } from "../../components/ui/Button.js";
 import { Input } from "../../components/ui/Input.js";
-import { InlineLoader } from "../../components/ui/PageLoader.js";
+import { InlineLoader, PageLoader } from "../../components/ui/PageLoader.js";
 import { getAuthRoleFallback, rememberAuthRole } from "../../lib/authRole.js";
 import { useAuthStore } from "../../store/authStore.js";
 
@@ -19,10 +20,14 @@ export default function LoginPage() {
   const [role, setRole] = useState("recruiter");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     setRole(getAuthRoleFallback());
-  }, []);
+    router.prefetch("/dashboard");
+    router.prefetch("/candidate/dashboard");
+  }, [router]);
 
   function changeRole(nextRole) {
     rememberAuthRole(nextRole);
@@ -41,19 +46,24 @@ export default function LoginPage() {
       };
       if (role === "candidate") {
         await candidateLogin(payload);
+        setRedirecting(true);
         toast.success("Welcome back");
         router.replace("/candidate/dashboard");
         return;
       }
       await login(payload);
+      setRedirecting(true);
       toast.success("Welcome back");
       router.replace("/dashboard");
     } catch (err) {
       setError(err.message);
       toast.error(err.message);
-    } finally {
       setLoading(false);
     }
+  }
+
+  if (redirecting) {
+    return <PageLoader label="Opening dashboard..." className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-slate-200" />;
   }
 
   return (
@@ -77,25 +87,39 @@ export default function LoginPage() {
               <label className="text-sm font-medium text-slate-200 mb-2 block">
                 Email address
               </label>
-              <Input 
-                className="w-full bg-slate-700/50 border border-slate-600/50 text-white placeholder:text-slate-400 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all rounded-lg px-4 py-2" 
-                name="email" 
-                type="email" 
-                placeholder={role === "candidate" ? "you@example.com" : "you@company.com"} 
-                required 
-              />
+              <div className="relative">
+                <Mail size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Input 
+                  className="w-full rounded-lg border border-slate-600/50 bg-slate-700/50 py-2 pl-10 pr-4 text-white placeholder:text-slate-400 transition-all focus:border-teal-500 focus:ring-1 focus:ring-teal-500" 
+                  name="email" 
+                  type="email" 
+                  placeholder={role === "candidate" ? "you@example.com" : "you@company.com"} 
+                  required 
+                />
+              </div>
             </div>
             <div>
               <label className="text-sm font-medium text-slate-200 mb-2 block">
                 Password
               </label>
-              <Input 
-                className="w-full bg-slate-700/50 border border-slate-600/50 text-white placeholder:text-slate-400 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all rounded-lg px-4 py-2" 
-                name="password" 
-                type="password" 
-                placeholder="Enter your password" 
-                required 
-              />
+              <div className="relative">
+                <Input 
+                  className="w-full rounded-lg border border-slate-600/50 bg-slate-700/50 py-2 pl-4 pr-11 text-white placeholder:text-slate-400 transition-all focus:border-teal-500 focus:ring-1 focus:ring-teal-500" 
+                  name="password" 
+                  type={showPassword ? "text" : "password"} 
+                  placeholder="Enter your password" 
+                  required 
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((current) => !current)}
+                  className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-600/60 hover:text-white"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                >
+                  {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                </button>
+              </div>
             </div>
           </div>
           {error && (
