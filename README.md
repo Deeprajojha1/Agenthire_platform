@@ -1,21 +1,641 @@
 # AgentHire
 
-Spec-driven multi-agent recruitment platform.
+AgentHire is a spec-driven multi-agent recruitment platform. It helps recruiters publish jobs, collect applications, parse resumes, score candidates, shortlist applicants, schedule interviews, generate interview material, run candidate interview sessions, and notify candidates through an automated hiring workflow.
 
-## Structure
+The project is split into a Next.js recruiter/candidate web app, an Express API, MongoDB persistence, optional Qdrant vector search, and JSON specs that define workflow order, scoring rules, prompts, retry behavior, RAG behavior, email templates, and interview policy.
 
-- `client` contains the Next.js 15 JavaScript recruiter console and public candidate pages.
-- `server` contains the modular Express JavaScript API, services, agents, workflows, uploads, and logs.
-- `specs` contains the business-rule contract used by scoring, workflow order, retries, RAG, prompts, and node states.
+## Problem Solved
 
-## Local Run
+Hiring teams often lose time moving candidate data between tools, reviewing resumes manually, writing interview questions from scratch, and tracking where each applicant is in the process. Candidates also lack a single place to see their application status, interview schedule, notifications, and interview tasks.
 
-1. Copy `server/.env.example` to `server/.env` and set `MONGODB_URI` plus `JWT_SECRET`.
-2. Copy `client/.env.local.example` to `client/.env.local`.
-3. Run MongoDB and optionally Qdrant on `localhost:6333`.
-4. Install and start each app:
+AgentHire solves this by combining:
+
+- A recruiter console for jobs, candidates, workflows, analytics, and approvals.
+- A candidate portal for applications, notifications, interview access, and interview completion.
+- AI-assisted agents for resume parsing, embeddings, matching, shortlisting, interview generation, email drafting, and evaluation support.
+- Human checkpoints so recruiters stay in control before scheduling interviews and before final decisions.
+- Spec files so hiring rules can be changed without rewriting the whole application.
+
+## Core Features
+
+- Recruiter and candidate authentication with JWT sessions.
+- Public job listing and job application pages.
+- Resume upload with PDF parsing support.
+- Candidate profile and application tracking.
+- Automated hiring workflow powered by LangGraph.
+- Resume parsing agent that extracts structured resume data.
+- Embedding agent that stores resume/job context in Qdrant or in-memory fallback storage.
+- Matching agent that compares candidate experience and skills against the job spec.
+- Shortlisting agent that classifies candidates using score thresholds.
+- Human approval checkpoint for recruiter review.
+- Interview scheduling with difficulty, time window, question counts, preferred language, and optional interview documents.
+- Interview material generation with technical questions, coding task, and rubric.
+- Candidate interview portal with locked/unlocked interview states.
+- Monaco editor for coding answers.
+- Voice interview support with Murf AI text-to-speech and AssemblyAI transcription fallbacks.
+- Candidate notifications for workflow events.
+- Email notification support through Resend.
+- Recruiter analytics dashboard.
+- Workflow logs, node states, retries, and failure tracking.
+- JSON specs for prompts, evaluation rules, workflow order, node states, RAG policy, email templates, and interview policies.
+
+## Roles
+
+### Recruiter
+
+Recruiters manage the hiring process from job creation to final review.
+
+Recruiters can:
+
+- Sign up and log in through the recruiter app.
+- Create, list, view, and update jobs.
+- View candidates who applied for jobs.
+- Start, retry, inspect, delete, or clear hiring workflows.
+- Review candidates at the human approval checkpoint.
+- Approve or reject candidates after shortlisting.
+- Schedule interviews for approved candidates.
+- Configure interview difficulty and interview details.
+- Upload interview-related documents during approval.
+- View workflow state, node results, attempts, and failures.
+- Review analytics across jobs, candidates, and workflow outcomes.
+
+### Admin
+
+The `User` model supports an `admin` role. In the current codebase, protected recruiter API access is granted through recruiter-facing middleware, so admin behavior depends on how that middleware is configured. Admin is available at the data-model level for future platform ownership, user management, or elevated access features.
+
+### Candidate
+
+Candidates apply for jobs and complete the candidate-side hiring process.
+
+Candidates can:
+
+- Sign up and log in through the candidate portal.
+- Browse available jobs.
+- Apply to a job with personal details and a resume.
+- Link applications to their candidate account when authenticated.
+- View candidate dashboard information.
+- Track submitted applications.
+- Open application detail pages.
+- Read notifications generated by workflow events.
+- View scheduled interviews.
+- Start an interview session when access rules allow it.
+- Listen to AI interviewer audio when voice support is configured.
+- Submit manual, recorded, and coding answers.
+- Complete interview sessions.
+
+## Hiring Flow
+
+The default workflow is defined in `specs/workflow/default-hiring-workflow.json`.
+
+1. `resume_parser`
+   Extracts structured candidate information from the uploaded resume.
+
+2. `embedding_agent`
+   Creates and stores searchable resume/job context for retrieval-augmented matching and interview generation.
+
+3. `matching_agent`
+   Compares resume data against the job and hiring spec.
+
+4. `shortlisting_agent`
+   Applies score-based rules and decides whether the candidate is shortlisted, on hold, or rejected.
+
+5. `human_approval`
+   Pauses the workflow for recruiter approval.
+
+6. `interview_scheduling`
+   Saves the scheduled interview time, end time, difficulty, question counts, preferred language, and related context.
+
+7. `email_agent`
+   Sends or prepares candidate communication such as interview invitations.
+
+8. `interview_agent`
+   Generates interview questions, coding task, and rubric.
+
+9. `ai_interview_engine`
+   Waits for the candidate interview session to be completed.
+
+10. `evaluation_agent`
+    Prepares evaluation output after the interview is available.
+
+11. `recruiter_review`
+    Pauses again for the recruiter to make the final decision.
+
+12. `final_email_agent`
+    Sends or prepares the final candidate email.
+
+Workflow node states are defined in `specs/workflow/node-states.json`:
+
+- `pending`
+- `running`
+- `success`
+- `failed`
+- `waiting_approval`
+
+Shortlisting thresholds are defined in `specs/evaluation/shortlisting-rules.json`:
+
+- `shortlisted`: 80-100
+- `hold`: 60-79
+- `rejected`: 0-59
+
+## Candidate Interview Flow
+
+The interview behavior is documented in `specs/interview-workflow.md`.
+
+Candidate interview states:
+
+- `Interview not scheduled`: no interview time has been set.
+- `Upcoming interview`: the interview is scheduled, but the time has not arrived.
+- `Interview ready`: the scheduled time has arrived and interview material exists.
+- `Interview completed`: the scheduled time has passed, but interview material is not available.
+
+Interview access rules:
+
+- Candidates see interviews in the candidate portal.
+- Questions and coding material are locked until the scheduled time.
+- Candidates can view the assigned difficulty but cannot change it.
+- Technical questions are generated from parsed resume skills, required skills, preferred skills, and role context.
+- Coding tasks follow the configured difficulty and coding policies.
+- Voice audio is optional and falls back to text if Murf AI is not configured or fails.
+- Recorded answers are optional and fall back to manual text if AssemblyAI is not configured or transcription fails.
+
+## Project Structure
+
+```text
+AgentHire/
+  client/                         Next.js 15 frontend
+    app/                          App Router pages
+      dashboard/                  Recruiter dashboard, jobs, candidates, workflows, analytics
+      candidate/                  Candidate portal pages
+      jobs/                       Public job pages and application form
+      login/                      Recruiter login
+      signup/                     Recruiter signup
+    components/                   Shared UI, shell, forms, workflow graph
+    lib/                          API client, session helpers, role helpers
+    store/                        Zustand auth store
+  server/                         Express API
+    src/
+      agents/                     Resume, matching, shortlisting, interview, email, embedding agents
+      config/                     Environment, DB, Qdrant config
+      controllers/                HTTP request handlers
+      middleware/                 Auth, validation, uploads, errors
+      models/                     Mongoose models
+      rag/                        Qdrant and memory vector helpers
+      routes/                     API route definitions
+      services/                   Business logic and integrations
+      workflows/                  LangGraph hiring workflow
+      utils/                      Scoring, spec loading, responses, failure logging
+      validators/                 Zod request schemas
+    interviews/                   Uploaded interview recordings
+    tests/                        Server tests
+  specs/                          Product and AI behavior contracts
+    candidate/                    Candidate portal spec
+    email/                        Email templates and outcomes
+    evaluation/                   Scoring and retrieval rules
+    hiring/                       Hiring role specs
+    interview/                    Interview generation and evaluation rules
+    prompts/                      Agent prompt contracts
+    system/                       LLM, RAG, retry policies
+    workflow/                     Workflow order and node states
+```
+
+## Main Pages
+
+### Recruiter App
+
+- `/` - public home page.
+- `/signup` - recruiter signup.
+- `/login` - recruiter login.
+- `/dashboard` - recruiter overview.
+- `/dashboard/jobs` - job list.
+- `/dashboard/jobs/create` - create job.
+- `/dashboard/jobs/[jobId]/edit` - edit job.
+- `/dashboard/candidates` - candidate management.
+- `/dashboard/workflows` - workflow graph, node state, approval, retry, and review controls.
+- `/dashboard/analytics` - hiring analytics.
+
+### Candidate App
+
+- `/candidate/signup` - candidate signup.
+- `/candidate/login` - candidate login.
+- `/candidate/dashboard` - candidate overview.
+- `/candidate/jobs` - candidate job browser.
+- `/candidate/applications/[id]` - application details.
+- `/candidate/interviews` - interview list.
+- `/candidate/interviews/[id]` - interview session and questions.
+- `/candidate/notifications` - candidate notifications.
+
+### Public Job Pages
+
+- `/jobs/[jobId]` - public job detail page.
+- `/jobs/[jobId]/apply` - public application form.
+
+## API Overview
+
+The API is mounted from `server/src/app.js`.
+
+### Health
+
+- `GET /health`
+
+### Recruiter Auth
+
+- `POST /auth/signup`
+- `POST /auth/login`
+- `GET /auth/me`
+
+### Candidate Auth
+
+- `POST /candidate/auth/signup`
+- `POST /candidate/auth/login`
+- `GET /candidate/auth/me`
+
+### Jobs
+
+- `GET /jobs`
+- `GET /jobs/:id`
+- `POST /jobs`
+- `PUT /jobs/:id`
+
+### Candidates
+
+- `POST /candidates/check-application`
+- `POST /candidates/upload`
+- `GET /candidates`
+- `GET /candidates/:id`
+- `PATCH /candidates/:id`
+
+### Workflow
+
+- `GET /workflow`
+- `DELETE /workflow`
+- `POST /workflow/start`
+- `POST /workflow/retry`
+- `POST /workflow/approve`
+- `POST /workflow/recruiter-review`
+- `GET /workflow/:id`
+- `DELETE /workflow/:id`
+
+### Candidate Portal
+
+- `GET /candidate/dashboard`
+- `GET /candidate/jobs`
+- `GET /candidate/applications/:id`
+- `GET /candidate/notifications`
+- `PATCH /candidate/notifications/read-all`
+- `PATCH /candidate/notifications/:id/read`
+- `POST /candidate/interviews/:applicationId/start`
+- `GET /candidate/interviews/session/:interviewId`
+- `POST /candidate/interviews/session/:interviewId/questions/:questionId/audio`
+- `POST /candidate/interviews/session/:interviewId/answers`
+- `POST /candidate/interviews/session/:interviewId/complete`
+
+### Analytics
+
+- `GET /analytics`
+
+## Data Models
+
+### User
+
+Stores recruiter, candidate, and admin accounts.
+
+Important fields:
+
+- `name`
+- `email`
+- `password`
+- `role`
+- `candidateProfile`
+
+Supported roles:
+
+- `candidate`
+- `recruiter`
+- `admin`
+
+### Job
+
+Stores job descriptions and hiring requirements.
+
+Important fields:
+
+- `title`
+- `description`
+- `required_skills`
+- `preferred_skills`
+- `min_experience`
+- `application_deadline`
+- `workflow_spec_id`
+- `hiring_spec_id`
+- `created_by`
+
+### Candidate
+
+Stores application data for a candidate applying to a job.
+
+Important fields:
+
+- `job_id`
+- `candidate_user_id`
+- `name`
+- `email`
+- `phone`
+- `resume_url`
+- `parsed_resume_json`
+- `match_score`
+- `status`
+
+### Workflow
+
+Stores each candidate's hiring workflow execution.
+
+Important fields:
+
+- `candidate_id`
+- `job_id`
+- `current_state`
+- `status`
+- `approval_status`
+- `interview_scheduled_at`
+- `interview_ends_at`
+- `interview_difficulty`
+- `execution_order`
+- `node_states`
+- `retry_count`
+- `context`
+
+### Interview
+
+Stores interview session data, answers, recordings, transcripts, code submissions, timing, and completion status.
+
+## Specs
+
+The `specs/` directory is a contract between product behavior and implementation. It keeps core hiring behavior visible and editable.
+
+Key specs:
+
+- `specs/workflow/default-hiring-workflow.json` - workflow execution order.
+- `specs/workflow/node-states.json` - node labels and colors.
+- `specs/evaluation/shortlisting-rules.json` - score thresholds.
+- `specs/evaluation/rag-retrieval.json` - retrieval settings.
+- `specs/hiring/frontend-developer.json` - default hiring role requirements.
+- `specs/interview/*.json` - interview generation, coding, difficulty, voice, and evaluation rules.
+- `specs/prompts/*.json` - prompt contracts for AI agents.
+- `specs/system/*.json` - retry, LLM, and RAG system policies.
+- `specs/email/*.json` - email templates and candidate communication rules.
+- `specs/candidate/portal.json` - candidate portal behavior.
+
+## Tech Stack
+
+### Frontend
+
+- Next.js 15
+- React 19
+- Tailwind CSS
+- Zustand
+- React Hook Form
+- Zod
+- Socket.IO client
+- Monaco Editor
+- Lucide React
+- Sonner
+- XYFlow
+
+### Backend
+
+- Node.js
+- Express
+- MongoDB and Mongoose
+- LangGraph
+- Socket.IO
+- Multer
+- PDF parsing
+- Qdrant vector database with memory fallback
+- Hugging Face Transformers embeddings
+- Resend email
+- Murf AI text-to-speech
+- AssemblyAI transcription
+- Jest and Supertest
+
+## Environment Variables
+
+Create `server/.env`:
+
+```env
+PORT=5000
+MONGODB_URI=mongodb://localhost:27017/agenthire
+JWT_SECRET=change-me
+
+CLIENT_ORIGIN=http://localhost:3000
+CLIENT_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-1.5-flash
+GROQ_API_KEY=
+OPENROUTER_API_KEY=
+
+QDRANT_URL=http://localhost:6333
+QDRANT_API_KEY=
+
+MURF_API_KEY=
+MURF_TTS_URL=https://api.murf.ai/v1/speech/generate
+MURF_VOICE_ID=en-US-natalie
+
+ASSEMBLYAI_API_KEY=
+ASSEMBLYAI_UPLOAD_URL=https://api.assemblyai.com/v2/upload
+ASSEMBLYAI_TRANSCRIPT_URL=https://api.assemblyai.com/v2/transcript
+
+RESEND_API_KEY=
+RESEND_FROM_EMAIL=AgentHire <onboarding@resend.dev>
+RESEND_TEST_TO=
+RESEND_TEST_REDIRECT=false
+```
+
+Create `client/.env.local`:
+
+```env
+NEXT_PUBLIC_API_URL=/api
+NEXT_PUBLIC_BACKEND_URL=http://localhost:5000
+NEXT_PUBLIC_SOCKET_URL=http://localhost:5000
+```
+
+The application can run without most external AI keys. Missing LLM, voice, transcription, email, or Qdrant services fall back where the code supports it:
+
+- LLM generation falls back to deterministic data.
+- Qdrant storage falls back to in-memory search.
+- Murf AI failures fall back to text-only interview questions.
+- AssemblyAI failures fall back to manual answer text.
+
+## Local Setup
+
+### Requirements
+
+- Node.js 20 or newer recommended.
+- MongoDB running locally or a hosted MongoDB URI.
+- Optional Qdrant on `localhost:6333`.
+- Optional provider keys for Gemini, Groq, OpenRouter, Murf AI, AssemblyAI, and Resend.
+
+### Install Dependencies
 
 ```bash
-cd server && npm install && npm run dev
-cd client && npm install && npm run dev
+cd server
+npm install
+
+cd ../client
+npm install
 ```
+
+### Start Backend
+
+```bash
+cd server
+npm run dev
+```
+
+The backend defaults to:
+
+```text
+http://localhost:5000
+```
+
+### Start Frontend
+
+```bash
+cd client
+npm run dev
+```
+
+The frontend defaults to:
+
+```text
+http://localhost:3000
+```
+
+## Scripts
+
+### Server
+
+- `npm run dev` - starts Express with Nodemon after freeing the configured port.
+- `npm start` - starts Express with Node.
+- `npm test` - runs Jest tests.
+
+### Client
+
+- `npm run dev` - starts Next.js on port 3000 after dev cleanup.
+- `npm run build` - builds the Next.js app.
+- `npm start` - starts the production Next.js server.
+- `npm run lint` - runs ESLint.
+
+## Testing
+
+Server tests are located in `server/tests`.
+
+Run:
+
+```bash
+cd server
+npm test
+```
+
+Client lint:
+
+```bash
+cd client
+npm run lint
+```
+
+Client production build:
+
+```bash
+cd client
+npm run build
+```
+
+## How The System Works
+
+1. A recruiter creates a job with required skills, preferred skills, experience, and linked specs.
+2. A candidate applies through the public job form and uploads a resume.
+3. A candidate record is created and a workflow can be started.
+4. The workflow parses the resume, stores embeddings, scores the match, and shortlists the candidate.
+5. If the candidate reaches the human approval checkpoint, the recruiter approves or rejects.
+6. If approved, the recruiter schedules the interview and selects interview details.
+7. The system sends or prepares communication and generates interview material.
+8. The candidate opens the portal and waits until the scheduled interview time.
+9. At interview time, the candidate starts the session, answers questions, records audio if desired, and submits code.
+10. The workflow waits for interview completion, then prepares evaluation and recruiter review.
+11. The recruiter makes a final decision.
+12. The final email agent sends or prepares the final outcome communication.
+
+## Design Principles
+
+- Spec-driven behavior: hiring logic lives in JSON specs wherever possible.
+- Human-in-the-loop control: recruiters approve important transitions.
+- Graceful degradation: missing external services should not block the whole hiring flow.
+- Candidate transparency: candidates can see applications, notifications, and interview status.
+- Workflow observability: every node has status, attempts, output, and error information.
+- Modular agents: each AI responsibility is isolated in its own agent file.
+
+## Common Troubleshooting
+
+### Frontend cannot reach backend
+
+Check `client/.env.local` and confirm:
+
+```env
+NEXT_PUBLIC_BACKEND_URL=http://localhost:5000
+NEXT_PUBLIC_SOCKET_URL=http://localhost:5000
+```
+
+Also confirm the backend is running and `GET /health` returns healthy.
+
+### Login succeeds but protected routes fail
+
+Check `JWT_SECRET` is stable between server restarts and that the browser has the current `agenthire_token`.
+
+### Resume or interview uploads fail
+
+Check upload middleware limits, file type, and that the server process can write to the expected upload directories.
+
+### Qdrant is unavailable
+
+The app falls back to in-memory retrieval. Start Qdrant and set `QDRANT_URL` if persistent vector search is needed.
+
+### AI output is deterministic or generic
+
+Set at least one LLM provider key:
+
+- `GEMINI_API_KEY`
+- `GROQ_API_KEY`
+- `OPENROUTER_API_KEY`
+
+### Voice questions do not play
+
+Set `MURF_API_KEY`. If it is missing or the request fails, the interview continues with text questions.
+
+### Audio transcription does not work
+
+Set `ASSEMBLYAI_API_KEY`. If it is missing or transcription fails, candidates can still submit manual text answers.
+
+## Important Files
+
+- `server/src/workflows/hiringWorkflow.js` - workflow orchestration.
+- `server/src/services/workflowService.js` - workflow persistence and recruiter actions.
+- `server/src/agents/*.js` - agent implementations.
+- `server/src/services/interview/interviewService.js` - interview session orchestration.
+- `server/src/services/interview/voiceService.js` - voice and transcription integrations.
+- `server/src/services/candidate/portalService.js` - candidate portal data.
+- `client/app/dashboard/workflows/page.js` - recruiter workflow UI.
+- `client/app/candidate/interviews/page.js` - candidate interview list.
+- `client/app/candidate/interviews/[id]/page.js` - candidate interview session UI.
+- `client/app/candidate/interviews/interviewHelpers.js` - shared interview state logic.
+- `client/components/WorkflowGraph.js` - workflow graph visualization.
+
+## Future Improvements
+
+- Admin user management screens.
+- More role-specific permissions for admin versus recruiter.
+- More provider options for LLM, TTS, and transcription.
+- Richer recruiter final-review workflow.
+- Candidate interview scorecards and recruiter comparison views.
+- Better audit dashboards for workflow failures and retries.
+- Production deployment guide with Docker and cloud infrastructure.
