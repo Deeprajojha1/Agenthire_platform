@@ -98,21 +98,23 @@ export default function CandidateNotificationsPage() {
   const activeApplication = data?.applications?.find((item) => String(item.application.id) === String(activeApplicationId)) || data?.applications?.[0];
 
   return (
-    <>
+    <section className="flex h-[calc(100vh-5.5rem)] flex-col overflow-hidden md:h-[calc(100vh-8rem)]">
+      <div className="shrink-0 rounded-xl border border-teal-100 bg-gradient-to-r from-white/95 via-teal-50/95 to-indigo-50/95 p-4 shadow-sm backdrop-blur sm:p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-teal-700">Notification Center</p>
-          <h1 className="mt-1 text-2xl font-semibold text-slate-950">Notifications</h1>
+          <p className="text-sm font-semibold text-teal-700">Notification Center</p>
+          <h1 className="mt-1 text-xl font-semibold text-slate-950 sm:text-2xl">Notifications</h1>
         </div>
-        <Button variant="outline" onClick={markAllRead} disabled={!data?.unread_count}><CheckCheck size={16} />Mark all as read</Button>
+        <Button className="w-full border-indigo-200 bg-white text-slate-900 shadow-sm hover:bg-indigo-50 hover:text-indigo-700 sm:w-auto" variant="outline" onClick={markAllRead} disabled={!data?.unread_count}><CheckCheck size={16} />Mark all as read</Button>
+      </div>
       </div>
 
-      {!data && !error && <PageLoader label="Loading notifications..." className="min-h-80" />}
+      {!data && !error && <PageLoader label="Loading notifications..." className="min-h-0 flex-1" />}
       {error && <p className="mt-6 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
       {data && (
-        <div className="mt-6 space-y-6">
-          <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1 sm:mt-6 sm:pr-2">
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <p className="text-sm font-medium text-teal-700">Application Workflow</p>
@@ -129,7 +131,7 @@ export default function CandidateNotificationsPage() {
                 <select
                   value={activeApplication?.application?.id || ""}
                   onChange={(event) => setActiveApplicationId(event.target.value)}
-                  className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-teal-700 focus:ring-2 focus:ring-teal-100"
+                  className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-teal-700 focus:ring-2 focus:ring-teal-100 lg:w-auto"
                 >
                   {data.applications.map((item) => (
                     <option key={item.application.id} value={item.application.id}>
@@ -182,6 +184,6 @@ export default function CandidateNotificationsPage() {
 
         </div>
       )}
-    </>
+    </section>
   );
 }

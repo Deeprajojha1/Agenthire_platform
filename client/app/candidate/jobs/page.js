@@ -50,24 +50,24 @@ export default function CandidateJobsPage() {
   }, [search]);
 
   return (
-    <>
-      <div className="sticky top-16 z-30 -mx-4 border-b border-slate-200 bg-[#f4f7f7]/95 px-4 pb-4 pt-1 backdrop-blur md:-mx-8 md:px-8">
+    <section className="flex h-[calc(100vh-5.5rem)] flex-col overflow-hidden md:h-[calc(100vh-8rem)]">
+      <div className="shrink-0 rounded-xl border border-teal-100 bg-gradient-to-r from-white/95 via-teal-50/95 to-indigo-50/95 p-4 shadow-sm backdrop-blur sm:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm font-medium text-teal-700">Candidate Portal</p>
-            <h1 className="mt-1 text-2xl font-semibold text-slate-950">Jobs</h1>
+            <p className="text-sm font-semibold text-teal-700">Candidate Portal</p>
+            <h1 className="mt-1 text-xl font-semibold text-slate-950 sm:text-2xl">Jobs</h1>
           </div>
-          <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">Published by recruiters</span>
+          <span className="self-start rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700 sm:self-auto">Published by recruiters</span>
         </div>
 
-        <div className="mt-5 flex flex-col gap-3 rounded-md border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center">
+        <div className="mt-4 flex flex-col gap-3 rounded-lg border border-teal-100 bg-white/90 p-3 shadow-sm ring-1 ring-white/70 sm:mt-5 sm:flex-row sm:items-center sm:p-4">
           <div className="relative flex-1">
-            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-teal-500" />
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search by job title, skill, or description"
-              className="pl-9 pr-9"
+              className="border-slate-200 bg-slate-50/70 pl-9 pr-9 focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
             />
             {search && (
               <button
@@ -80,34 +80,35 @@ export default function CandidateJobsPage() {
               </button>
             )}
           </div>
-          <p className="text-sm text-slate-500">{loading ? "Searching..." : `${data?.jobs?.length || 0} job${data?.jobs?.length === 1 ? "" : "s"}`}</p>
+          <p className="self-start rounded-full bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-700 sm:self-auto">{loading ? "Searching..." : `${data?.jobs?.length || 0} job${data?.jobs?.length === 1 ? "" : "s"}`}</p>
         </div>
       </div>
 
-      {!data && !error && <PageLoader label="Loading jobs..." className="min-h-80" />}
+      {!data && !error && <PageLoader label="Loading jobs..." className="min-h-0 flex-1" />}
       {error && <p className="mt-6 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
       {data && (
-        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1 sm:mt-6 sm:pr-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           {data.jobs.length === 0 && (
-            <div className="rounded-md border border-slate-200 bg-white p-6 lg:col-span-2">
+            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
               <p className="font-medium text-slate-950">{search ? "No matching jobs found" : "No published jobs found"}</p>
               <p className="mt-1 text-sm text-slate-600">{search ? "Try a different job title, skill, or description." : "Recruiter-published jobs will appear here."}</p>
             </div>
           )}
           {data.jobs.map((job) => (
-            <div key={job.id} className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+            <div key={job.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm ring-1 ring-transparent transition hover:border-teal-200 hover:shadow-md hover:ring-teal-100 sm:p-5">
               {(() => {
                 const alreadySubmitted = submittedJobs.has(job.id);
                 const missedDeadline = !job.already_applied && !alreadySubmitted && isExpired(job.application_deadline);
                 return (
                   <>
-              <div className="flex items-start justify-between gap-3">
-                <div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
                   <div className="flex items-center gap-2 text-sm font-medium text-teal-700">
                     <BriefcaseBusiness size={15} /> Published Job
                   </div>
-                  <h2 className="mt-2 text-lg font-semibold text-slate-950">{job.title}</h2>
+                  <h2 className="mt-2 break-words text-lg font-semibold text-slate-950">{job.title}</h2>
                   <p className="mt-1 line-clamp-3 text-sm text-slate-600">{job.description}</p>
                   <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-500">
                     <span>Posted {formatDate(job.created_at)}</span>
@@ -124,11 +125,11 @@ export default function CandidateJobsPage() {
               </div>
               <div className="mt-5 flex flex-wrap gap-2">
                 {job.already_applied || alreadySubmitted ? (
-                  <Button variant="outline" disabled>Applied</Button>
+                  <Button className="w-full sm:w-auto" variant="outline" disabled>Applied</Button>
                 ) : missedDeadline ? (
-                  <Button variant="outline" disabled>Missing deadline</Button>
+                  <Button className="w-full sm:w-auto" variant="outline" disabled>Missing deadline</Button>
                 ) : (
-                  <Button type="button" onClick={() => setApplyingJob(job)}>Apply Now</Button>
+                  <Button className="w-full sm:w-auto" type="button" onClick={() => setApplyingJob(job)}>Apply Now</Button>
                 )}
               </div>
                   </>
@@ -136,6 +137,7 @@ export default function CandidateJobsPage() {
               })()}
             </div>
           ))}
+        </div>
         </div>
       )}
 
@@ -158,6 +160,6 @@ export default function CandidateJobsPage() {
           </div>
         </div>
       )}
-    </>
+    </section>
   );
 }

@@ -28,19 +28,19 @@ export default function CandidateInterviewsPage() {
   const applications = data?.applications || [];
 
   return (
-    <>
-      <div className="flex flex-col gap-2">
-        <p className="text-sm font-medium text-teal-700">Interview Center</p>
-        <h1 className="text-2xl font-semibold text-slate-950">Interviews</h1>
+    <section className="flex h-[calc(100vh-5.5rem)] flex-col overflow-hidden md:h-[calc(100vh-8rem)]">
+      <div className="shrink-0 rounded-xl border border-teal-100 bg-gradient-to-r from-white/95 via-teal-50/95 to-indigo-50/95 p-4 shadow-sm backdrop-blur sm:p-5">
+        <p className="text-sm font-semibold text-teal-700">Interview Center</p>
+        <h1 className="mt-1 text-xl font-semibold text-slate-950 sm:text-2xl">Interviews</h1>
       </div>
 
-      {!data && !error && <PageLoader label="Loading interviews..." className="min-h-80" />}
+      {!data && !error && <PageLoader label="Loading interviews..." className="min-h-0 flex-1" />}
       {error && <p className="mt-6 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
       {data && (
-        <div className="mt-6 space-y-4">
+        <div className="mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto pr-1 sm:mt-6 sm:pr-2">
           {applications.length === 0 && (
-            <div className="rounded-md border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-600">
+            <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-600 shadow-sm">
               Interview status will appear here after you submit an application.
             </div>
           )}
@@ -114,6 +114,6 @@ export default function CandidateInterviewsPage() {
           })}
         </div>
       )}
-    </>
+    </section>
   );
 }
