@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { BriefcaseBusiness, ChartBar, GitBranch, LayoutDashboard, LogOut, Menu, Sparkles, UserRound, Users, X } from "lucide-react";
+import { BriefcaseBusiness, ChartBar, GitBranch, LayoutDashboard, LogOut, Menu, UserRound, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import { api, clearToken, getToken } from "../lib/api.js";
 import { useAuthStore } from "../store/authStore.js";
@@ -46,7 +46,6 @@ export default function AppShell({ children }) {
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState(cachedUser);
   const [open, setOpen] = useState(false);
-  const [navigating, setNavigating] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -87,21 +86,15 @@ export default function AppShell({ children }) {
     };
   }, [cachedUser, router]);
 
-  useEffect(() => {
-    setNavigating(false);
-  }, [pathname]);
-
   function handleNavigate(href, event) {
     setOpen(false);
     if (href === pathname) {
       event?.preventDefault();
       return;
     }
-    setNavigating(true);
   }
 
   function logout() {
-    setNavigating(true);
     clearAuthState();
     toast.success("Logged out");
     router.replace("/login");
@@ -114,7 +107,7 @@ export default function AppShell({ children }) {
       <header className="sticky top-0 z-40 border-b border-slate-700/50 bg-gradient-to-b from-slate-900 to-slate-800 backdrop-blur-sm">
         <div className="flex h-16 items-center justify-between px-3 sm:px-4 md:px-8">
           <Link href="/dashboard" onClick={(event) => { event.preventDefault(); handleNavigate("/dashboard"); }} className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 text-white shadow-lg"><Sparkles size={18} /></span>
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 text-white shadow-lg"><BriefcaseBusiness size={18} /></span>
             <span>
               <span className="block text-base font-semibold leading-5 text-white">AgentHire</span>
               <span className="hidden text-xs text-slate-400 sm:block">Recruiter Console</span>
@@ -176,13 +169,8 @@ export default function AppShell({ children }) {
         </div>
       )}
 
-      <main className="relative min-h-[calc(100vh-4rem)] md:pl-60">
-        {navigating && (
-          <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/45 backdrop-blur-[1px]">
-            <PageLoader label="Loading page..." className="min-h-0 rounded-md border border-slate-200 bg-white px-8 py-6 shadow-sm" />
-          </div>
-        )}
-        <div className={`mx-auto max-w-7xl p-3 transition-opacity sm:p-4 md:p-8 ${navigating ? "opacity-40" : "opacity-100"}`}>{children}</div>
+      <main className="min-h-[calc(100vh-4rem)] md:pl-60">
+        <div className="mx-auto max-w-7xl p-3 sm:p-4 md:p-8">{children}</div>
       </main>
     </div>
   );

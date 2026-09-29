@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ArrowRight, BarChart3, CheckCircle2, GitBranch, ShieldCheck, Sparkles, Zap, Users, Clock, TrendingUp, Workflow } from "lucide-react";
+import { ArrowRight, BarChart3, BriefcaseBusiness, CheckCircle2, GitBranch, ShieldCheck, Zap, Users, Clock, TrendingUp, Workflow } from "lucide-react";
 import { getToken } from "../lib/api.js";
 import { resolveSession } from "../lib/session.js";
 import { Button } from "../components/ui/Button.js";
@@ -63,7 +63,7 @@ export default function Home() {
           <div className="relative mx-auto max-w-7xl">
             <div className="mb-8 flex justify-center">
               <div className="inline-flex items-center gap-2 rounded-full border border-teal-500/30 bg-teal-500/10 px-4 py-2 text-sm font-medium text-teal-300 backdrop-blur-sm hover:bg-teal-500/20 transition-colors">
-                <Sparkles size={16} className="animate-spin" style={{ animationDuration: "3s" }} />
+                <BriefcaseBusiness size={16} />
                 Spec-driven AI recruitment platform
               </div>
             </div>
@@ -85,7 +85,7 @@ export default function Home() {
                       <ArrowRight size={18} />
                     </Link>
                   </Button>
-                  <Button variant="outline" asChild className="border border-slate-500 text-slate-200 hover:bg-slate-700/50 px-8 py-3 text-base font-semibold rounded-lg transition-all">
+                  <Button variant="outline" asChild className="border border-slate-500 bg-slate-800 text-slate-200 hover:bg-slate-700 px-8 py-3 text-base font-semibold rounded-lg transition-all">
                     <Link href="/login">Sign In</Link>
                   </Button>
                 </div>

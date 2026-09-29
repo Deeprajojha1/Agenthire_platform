@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bell, BriefcaseBusiness, CalendarClock, LayoutDashboard, LogOut, Menu, Sparkles, UserRound, X } from "lucide-react";
+import { Bell, BriefcaseBusiness, CalendarClock, LayoutDashboard, LogOut, Menu, UserRound, X } from "lucide-react";
 import { toast } from "sonner";
 import { api, clearToken, getToken } from "../../lib/api.js";
 import { rememberAuthRole } from "../../lib/authRole.js";
@@ -164,7 +164,7 @@ export default function CandidateShell({ children }) {
       <header className="sticky top-0 z-40 border-b border-slate-700/50 bg-gradient-to-b from-slate-900 to-slate-800 backdrop-blur-sm">
         <div className="flex h-16 items-center justify-between px-3 sm:px-4 md:px-8">
           <Link href="/candidate/dashboard" className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 text-white shadow-lg"><Sparkles size={18} /></span>
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 text-white shadow-lg"><BriefcaseBusiness size={18} /></span>
             <span>
               <span className="block text-base font-semibold leading-5 text-white">AgentHire</span>
               <span className="hidden text-xs text-slate-400 sm:block">Candidate Portal</span>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Sparkles, ArrowRight } from "lucide-react";
+import { BriefcaseBusiness, ArrowRight } from "lucide-react";
 import { Button } from "./ui/Button.js";
 
 export function PublicHeader({ ctaHref = "/signup", ctaLabel = "Get Started", signInHref = "/login", signInLabel = "Sign In", showCta = true }) {
@@ -10,7 +10,7 @@ export function PublicHeader({ ctaHref = "/signup", ctaLabel = "Get Started", si
       <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-2 px-3 py-3 sm:gap-3 sm:px-4 md:px-8">
         <Link href="/" className="flex items-center gap-2.5 group">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 text-white group-hover:from-teal-600 group-hover:to-teal-700 transition-all shadow-lg">
-            <Sparkles size={18} />
+            <BriefcaseBusiness size={18} />
           </span>
           <span className="text-base font-bold bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">AgentHire</span>
         </Link>
@@ -40,7 +40,7 @@ export function PublicFooter() {
           <div className="col-span-2 sm:col-span-1 md:col-span-1">
             <Link href="/" className="mb-3 flex items-center gap-2.5 sm:mb-4">
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 text-white shadow-lg">
-                <Sparkles size={18} />
+                <BriefcaseBusiness size={18} />
               </span>
               <span className="text-base font-bold bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">AgentHire</span>
             </Link>

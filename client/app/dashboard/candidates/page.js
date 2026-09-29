@@ -5,12 +5,14 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "../../../components/ui/Button.js";
 import { Input } from "../../../components/ui/Input.js";
+import { PageLoader } from "../../../components/ui/PageLoader.js";
 import { api } from "../../../lib/api.js";
 
 const statusOptions = ["submitted", "shortlist", "rejected", "hold", "hired"];
 
 export default function CandidatesPage() {
   const [candidates, setCandidates] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -20,6 +22,8 @@ export default function CandidatesPage() {
       setCandidates(await api("/candidates"));
     } catch (error) {
       toast.error(error.message);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -73,6 +77,8 @@ export default function CandidatesPage() {
       candidate.match_score?.toString()
     ].filter(Boolean).some((value) => value.toLowerCase().includes(normalizedQuery));
   });
+
+  if (loading) return <PageLoader label="Loading candidates..." />;
 
   return (
     <section>

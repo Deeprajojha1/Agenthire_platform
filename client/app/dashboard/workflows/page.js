@@ -6,6 +6,7 @@ import { FileText, Trash2, UploadCloud } from "lucide-react";
 import WorkflowGraph from "../../../components/WorkflowGraph.js";
 import { Button } from "../../../components/ui/Button.js";
 import { Input } from "../../../components/ui/Input.js";
+import { PageLoader } from "../../../components/ui/PageLoader.js";
 import { api } from "../../../lib/api.js";
 
 function toDateTimeLocalValue(date) {
@@ -42,6 +43,8 @@ function prettyState(value) {
 
 export default function WorkflowsPage() {
   const [workflows, setWorkflows] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [active, setActive] = useState(null);
   const [nodeStateSpec, setNodeStateSpec] = useState({});
   const [confirmAction, setConfirmAction] = useState(null);
@@ -70,13 +73,21 @@ export default function WorkflowsPage() {
   }, []);
 
   const load = useCallback(async () => {
-    const data = await api("/workflow");
-    setWorkflows(data.workflows);
-    setNodeStateSpec(data.node_state_spec);
-    if (data.workflows[0]) {
-      selectWorkflow(data.workflows[0]);
-    } else {
+    setLoadError("");
+    try {
+      const data = await api("/workflow");
+      setWorkflows(data.workflows);
+      setNodeStateSpec(data.node_state_spec);
+      if (data.workflows[0]) {
+        selectWorkflow(data.workflows[0]);
+      } else {
+        setActive(null);
+      }
+    } catch (error) {
+      setLoadError(error.message || "Unable to load workflows.");
       setActive(null);
+    } finally {
+      setIsLoading(false);
     }
   }, [selectWorkflow]);
 
@@ -246,8 +257,14 @@ export default function WorkflowsPage() {
           <Trash2 size={16} /> Clear all
         </Button>
       </div>
-      <div className="mt-6 grid gap-4 lg:grid-cols-[360px_1fr]">
-        <div className="space-y-3">
+      <div className={`mt-6 ${isLoading || workflows.length === 0 ? "flex min-h-[calc(100vh-14rem)] items-center justify-center" : "grid gap-4 lg:grid-cols-[360px_1fr]"}`}>
+        <div className={isLoading || workflows.length === 0 ? "w-full max-w-md" : "space-y-3"}>
+          {isLoading && <PageLoader label="Loading workflows..." className="min-h-0 rounded-md border border-slate-200 bg-white p-6 shadow-sm" />}
+          {loadError && !isLoading && (
+            <div className="rounded-md border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+              {loadError}
+            </div>
+          )}
           {workflows.map((workflow) => (
             <div key={workflow._id} className={`rounded-md border bg-white p-4 text-sm ${active?._id === workflow._id ? "border-teal-300 shadow-sm" : "border-slate-200"}`}>
               <button onClick={() => selectWorkflow(workflow)} className="w-full text-left">
@@ -265,12 +282,13 @@ export default function WorkflowsPage() {
               </div>
             </div>
           ))}
-          {workflows.length === 0 && (
+          {!isLoading && !loadError && workflows.length === 0 && (
             <div className="rounded-md border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">
               No workflows found.
             </div>
           )}
         </div>
+        {!isLoading && workflows.length > 0 && (
         <div className="space-y-4">
           {active && (
             <div className="rounded-md border border-slate-200 bg-white p-4">
@@ -425,6 +443,7 @@ export default function WorkflowsPage() {
             </div>
           )}
         </div>
+        )}
       </div>
 
       {confirmAction && (

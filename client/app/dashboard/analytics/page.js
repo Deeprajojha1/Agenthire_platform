@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { StatCard } from "../../../components/StatCard.js";
+import { PageLoader } from "../../../components/ui/PageLoader.js";
 import { api } from "../../../lib/api.js";
 
 export default function AnalyticsPage() {
   const [analytics, setAnalytics] = useState(null);
   useEffect(() => { api("/analytics").then(setAnalytics); }, []);
-  if (!analytics) return <p className="text-sm text-slate-600">Loading analytics...</p>;
+  if (!analytics) return <PageLoader label="Loading analytics..." />;
   return (
     <section>
       <h1 className="text-2xl font-semibold">Analytics</h1>
